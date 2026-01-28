@@ -2,6 +2,6 @@
   <Project Path="Aurora.FlowStudio.API/Aurora.FlowStudio.API.csproj" />
   <Project Path="Aurora.FlowStudio.Data/Aurora.FlowStudio.Data.csproj" />
   <Project Path="Aurora.FlowStudio.Entity/Aurora.FlowStudio.Entity.csproj" />
-  <Project Path="Aurora.FlowStudio.Infrastructure/Aurora.FlowStudio.Infrastructure.csproj" />
+  <Project Path="Aurora.FlowStudio.Infrastructure/Aurora.FlowStudio.Infrastructure.csproj" Id="0654698b-7c77-44b3-8f95-7c92d1b02a65" />
   <Project Path="Aurora.FlowStudio.Repository/Aurora.FlowStudio.Repository.csproj" />
 </Solution>
