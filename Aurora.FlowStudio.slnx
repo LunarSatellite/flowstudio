@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Aurora.FlowStudio.API/Aurora.FlowStudio.API.csproj" />
+  <Project Path="Aurora.FlowStudio.Data/Aurora.FlowStudio.Data.csproj" />
+  <Project Path="Aurora.FlowStudio.Entity/Aurora.FlowStudio.Entity.csproj" />
+  <Project Path="Aurora.FlowStudio.Infrastructure/Aurora.FlowStudio.Infrastructure.csproj" />
+  <Project Path="Aurora.FlowStudio.Repository/Aurora.FlowStudio.Repository.csproj" />
+</Solution>
