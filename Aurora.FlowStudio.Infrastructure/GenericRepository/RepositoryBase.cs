@@ -499,65 +499,65 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 		}
 	}
 
-	//public virtual async Task<(List<TDto> Items? NextCursor)> GetPagedByCursorAsync(
-	//    Guid? cursor,
-	//    int pageSize,
-	//    Expression<Func<TEntity, bool>>? filter = null,
-	//    CancellationToken cancellationToken = default)
-	//{
-	//    try
-	//    {
-	//        _logger.LogDebug("Getting paged {EntityType} by cursor, Size {PageSize}",
-	//            typeof(TEntity).Name, pageSize);
+	public virtual async Task<(List<TDto> Items, Guid? NextCursor)> GetPagedByCursorAsync(
+	  Guid? cursor,
+	  int pageSize,
+	  Expression<Func<TEntity, bool>>? filter = null,
+	  CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Getting paged {EntityType} by cursor, Size {PageSize}",
+				typeof(TEntity).Name, pageSize);
 
-	//        var query = Context.Set<TEntity>()
-	//            .AsNoTracking()
-	//            .Where(e => !e.IsDeleted);
+			var query = Context.Set<TEntity>()
+				.AsNoTracking()
+				.Where(e => !e.IsDeleted);
 
-	//        if (filter != null)
-	//        {
-	//            query = query.Where(filter);
-	//        }
+			if (filter != null)
+			{
+				query = query.Where(filter);
+			}
 
-	//        if (cursor != null)
-	//        {
-	//            query = query.Where(e => Comparer<Guid>.Default.Compare(e.Id, cursor.Value) > 0);
-	//        }
+			if (cursor != null)
+			{
+				query = query.Where(e => Comparer<Guid>.Default.Compare(e.Id, cursor.Value) > 0);
+			}
 
-	//        var items = await query
-	//            .OrderBy(e => e.Id)
-	//            .Take(pageSize + 1)
-	//            .ProjectToType<TDto>()
-	//            .ToListAsync(cancellationToken);
+			var items = await query
+				.OrderBy(e => e.Id)
+				.Take(pageSize + 1)
+				.ProjectToType<TDto>()
+				.ToListAsync(cancellationToken);
 
-	//        Guid? nextCursor = default;
-	//        if (items.Count > pageSize)
-	//        {
-	//            var lastItem = items[pageSize];
-	//            var idProperty = typeof(TDto).GetProperty("Id");
-	//            if (idProperty != null)
-	//            {
-	//                nextCursor = (Guid?)idProperty.GetValue(lastItem);
-	//            }
-	//            items = items.Take(pageSize).ToList();
-	//        }
+			Guid? nextCursor = default;
+			if (items.Count > pageSize)
+			{
+				var lastItem = items[pageSize];
+				var idProperty = typeof(TDto).GetProperty("Id");
+				if (idProperty != null)
+				{
+					nextCursor = (Guid?)idProperty.GetValue(lastItem);
+				}
+				items = items.Take(pageSize).ToList();
+			}
 
-	//        _logger.LogDebug("Retrieved {Count} {EntityType} entities by cursor",
-	//            items.Count, typeof(TEntity).Name);
+			_logger.LogDebug("Retrieved {Count} {EntityType} entities by cursor",
+				items.Count, typeof(TEntity).Name);
 
-	//        return (items, nextCursor);
-	//    }
-	//    catch (OperationCanceledException)
-	//    {
-	//        _logger.LogWarning("GetPagedByCursorAsync cancelled for {EntityType}", typeof(TEntity).Name);
-	//        throw;
-	//    }
-	//    catch (Exception ex)
-	//    {
-	//        _logger.LogError(ex, "Error getting paged {EntityType} by cursor", typeof(TEntity).Name);
-	//        throw;
-	//    }
-	//}
+			return (items, nextCursor);
+		}
+		catch (OperationCanceledException)
+		{
+			_logger.LogWarning("GetPagedByCursorAsync cancelled for {EntityType}", typeof(TEntity).Name);
+			throw;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error getting paged {EntityType} by cursor", typeof(TEntity).Name);
+			throw;
+		}
+	}
 
 	#endregion
 

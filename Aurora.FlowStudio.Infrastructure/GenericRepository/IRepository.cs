@@ -104,11 +104,11 @@ public interface IRepository<TEntity, TDto>
     /// <summary>
     /// Get paged DTOs with cursor-based pagination (for very large datasets)
     /// </summary>
-    //Task<(List<TDto> Items? NextCursor)> GetPagedByCursorAsync(
-    //    Guid? cursor,
-    //    int pageSize,
-    //    Expression<Func<TEntity, bool>>? filter = null,
-    //    CancellationToken cancellationToken = default);
+    Task<(List<TDto> Items, Guid? NextCursor)> GetPagedByCursorAsync(
+            Guid? cursor,
+            int pageSize,
+            Expression<Func<TEntity, bool>>? filter = null,
+            CancellationToken cancellationToken = default);
 
     #endregion
 
