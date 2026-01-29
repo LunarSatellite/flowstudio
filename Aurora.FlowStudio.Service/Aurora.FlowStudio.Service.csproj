@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Aurora.FlowStudio.Data\Aurora.FlowStudio.Data.csproj" />
+    <ProjectReference Include="..\Aurora.FlowStudio.Entity\Aurora.FlowStudio.Entity.csproj" />
+    <ProjectReference Include="..\Aurora.FlowStudio.Infrastructure\Aurora.FlowStudio.Infrastructure.csproj" />
+    <ProjectReference Include="..\Aurora.FlowStudio.Repository\Aurora.FlowStudio.Repository.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -4,4 +4,5 @@
   <Project Path="Aurora.FlowStudio.Entity/Aurora.FlowStudio.Entity.csproj" />
   <Project Path="Aurora.FlowStudio.Infrastructure/Aurora.FlowStudio.Infrastructure.csproj" Id="0654698b-7c77-44b3-8f95-7c92d1b02a65" />
   <Project Path="Aurora.FlowStudio.Repository/Aurora.FlowStudio.Repository.csproj" />
+  <Project Path="Aurora.FlowStudio.Service/Aurora.FlowStudio.Service.csproj" Id="ca60821d-bbd8-4dfd-8a04-73a824a0b583" />
 </Solution>

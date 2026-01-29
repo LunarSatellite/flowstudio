@@ -1,19 +1,16 @@
-﻿using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Infrastructure.OData;
-using Aurora.FlowStudio.Infrastructure;
+using Aurora.FlowStudio.Entity.Entity.Base;
 using Aurora.FlowStudio.Infrastructure.Implementations;
+using Aurora.FlowStudio.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Aurora.FlowStudio.Infrastructure;
 
 /// <summary>
 /// Unit of Work implementation using generic repository pattern
-/// Follows exact pattern from uploaded UnitOfWork.cs
+/// FIXED VERSION - includes IMemoryCache, IDistributedCache, and ICurrentUserService
 /// Repositories created on-demand and cached
 /// </summary>
 public class UnitOfWork : IUnitOfWork
@@ -21,6 +18,9 @@ public class UnitOfWork : IUnitOfWork
     private readonly IDatabaseFactory _databaseFactory;
     private readonly ILogger<UnitOfWork> _logger;
     private readonly ILoggerFactory _loggerFactory;
+    private readonly IMemoryCache _memoryCache;
+    private readonly IDistributedCache? _distributedCache;
+    private readonly ICurrentUserService? _currentUserService;
     private readonly Dictionary<Type, object> _repositories;
     private IDbContextTransaction? _currentTransaction;
     private bool _disposed;
@@ -28,17 +28,24 @@ public class UnitOfWork : IUnitOfWork
     public UnitOfWork(
         IDatabaseFactory databaseFactory,
         ILogger<UnitOfWork> logger,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        IMemoryCache memoryCache,
+        IDistributedCache? distributedCache = null,
+        ICurrentUserService? currentUserService = null)
     {
         _databaseFactory = databaseFactory ?? throw new ArgumentNullException(nameof(databaseFactory));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        _distributedCache = distributedCache;
+        _currentUserService = currentUserService;
         _repositories = new Dictionary<Type, object>();
     }
 
     /// <summary>
     /// Get repository for any entity type
     /// Creates and caches repository instance on first access
+    /// FIXED: Now passes all 5 required parameters to RepositoryBase constructor
     /// </summary>
     public IRepository<TEntity, TDto> Repository<TEntity, TDto>()
         where TEntity : BaseEntity
@@ -53,17 +60,14 @@ public class UnitOfWork : IUnitOfWork
             var repositoryType = typeof(RepositoryBase<,>).MakeGenericType(typeof(TEntity), typeof(TDto));
             var repositoryLogger = _loggerFactory.CreateLogger(repositoryType);
 
-            // Create IODataQueryHandler for this entity type
-            var odataHandlerType = typeof(IODataQueryHandler<>).MakeGenericType(typeof(TEntity));
-            var odataHandler = Activator.CreateInstance(
-                typeof(ODataQueryHandler<>).MakeGenericType(typeof(TEntity)))
-                ?? throw new InvalidOperationException($"Could not create ODataQueryHandler for {type.Name}");
-
+            // ✅ FIXED: Pass all 5 required parameters (added ICurrentUserService)
             var repositoryInstance = Activator.CreateInstance(
                 repositoryType,
                 _databaseFactory,
+                _memoryCache,
                 repositoryLogger,
-                odataHandler) ?? throw new InvalidOperationException($"Could not create repository for {type.Name}");
+                _distributedCache,
+                _currentUserService) ?? throw new InvalidOperationException($"Could not create repository for {type.Name}");
 
             _repositories.Add(type, repositoryInstance);
         }

@@ -5,6 +5,7 @@ using Aurora.FlowStudio.Entity.Entity.Base;
 using Aurora.FlowStudio.Infrastructure;
 using Aurora.FlowStudio.Infrastructure.OData;
 using Aurora.FlowStudio.Infrastructure.Results;
+using Aurora.FlowStudio.Infrastructure.Services;
 using EFCore.BulkExtensions;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
@@ -18,14 +19,17 @@ using System.Text.Json;
 namespace Aurora.FlowStudio.Infrastructure.Implementations;
 
 /// <summary>
-/// High-Performance DTO-First Generic Repository with ILogger
-/// PRODUCTION-READY IMPLEMENTATION:
-/// - ILogger dependency injection (4-parameter constructor)
-/// - Comprehensive try-catch error handling in ALL methods
-/// - NO direct SaveChangesAsync (UnitOfWork pattern)
-/// - Dual-layer caching (Memory + Distributed)
-/// - Structured logging at Debug/Info/Warning/Error levels
-/// Optimized for: Big Data, High Traffic, Low Memory, Horizontal Scalability
+/// PRODUCTION-READY Repository with COMPLETE Business Logic Automation
+/// ✅ Automatic audit tracking for 38+ BaseEntity fields
+/// ✅ 12 business logic helper methods
+/// ✅ IP address, User-Agent, Timezone, Country tracking
+/// ✅ Version management, Locking, Archiving, Verification
+/// ✅ View/Access counting, Cache management, Content hashing
+/// ✅ Dual-layer caching (Memory + Distributed)
+/// ✅ OData query support with pagination
+/// ✅ Bulk operations with EFCore.BulkExtensions
+/// ✅ Specification pattern support
+/// ✅ Comprehensive error handling and logging
 /// </summary>
 public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 	where TEntity : BaseEntity
@@ -35,32 +39,397 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 	protected readonly IMemoryCache _memoryCache;
 	protected readonly ILogger _logger;
 	protected readonly IDistributedCache? _distributedCache;
+	protected readonly ICurrentUserService? _currentUserService;
 	protected FlowStudioDbContext Context => _databaseFactory.Get();
 
-	// Cache configuration
 	private readonly TimeSpan _defaultCacheExpiration = TimeSpan.FromMinutes(15);
 	private readonly string _cacheKeyPrefix;
 
-	/// <summary>
-	/// Constructor with ILogger injection - 4 parameters
-	/// Compatible with UnitOfWork pattern
-	/// </summary>
 	public RepositoryBase(
 		IDatabaseFactory databaseFactory,
 		IMemoryCache memoryCache,
 		ILogger logger,
-		IDistributedCache? distributedCache = null)
+		IDistributedCache? distributedCache = null,
+		ICurrentUserService? currentUserService = null)
 	{
 		_databaseFactory = databaseFactory ?? throw new ArgumentNullException(nameof(databaseFactory));
 		_memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
 		_logger = logger ?? throw new ArgumentNullException(nameof(logger));
 		_distributedCache = distributedCache;
+		_currentUserService = currentUserService;
 		_cacheKeyPrefix = $"{typeof(TEntity).Name}:";
 
 		_logger.LogDebug("RepositoryBase<{EntityType}> instance created", typeof(TEntity).Name);
 	}
 
-	#region DTO-First Query Operations
+	#region Comprehensive Audit Field Helpers
+
+	/// <summary>
+	/// ✅ AUTO: Sets ALL creation audit fields (25+ fields) + Cache + Hash + Quality
+	/// </summary>
+	private void SetCreatedAuditFields(TEntity entity)
+	{
+		var now = DateTime.UtcNow;
+
+		entity.CreatedAt = now;
+		entity.IsDeleted = false;
+		entity.UpdateCount = 0;
+		entity.IsActive = true;
+		entity.IsLocked = false;
+		entity.Version = 1;
+		entity.IsLatestVersion = true;
+		entity.ConcurrencyStamp = Guid.NewGuid();
+		entity.RequiresAudit = true;
+		entity.DisplayOrder = 0;
+		entity.ViewCount = 0;
+		entity.AccessCount = 0;
+		entity.CommentCount = 0;
+		entity.AttachmentCount = 0;
+		entity.IsArchived = false;
+		entity.IsVerified = false;
+
+		if (_currentUserService != null)
+		{
+			var userId = _currentUserService.GetUserId();
+			var userName = _currentUserService.GetUserName();
+			var ipAddress = _currentUserService.GetIpAddress();
+			var userAgent = _currentUserService.GetUserAgent();
+			var timezone = _currentUserService.GetTimezone();
+			var country = _currentUserService.GetCountry();
+			var language = _currentUserService.GetLanguage();
+
+			if (userId.HasValue)
+			{
+				entity.CreatedByUserId = userId.Value;
+				entity.OwnerId = userId.Value;
+			}
+
+			if (!string.IsNullOrEmpty(userName))
+			{
+				entity.CreatedBy = userName.Length > 200 ? userName.Substring(0, 200) : userName;
+			}
+
+			if (!string.IsNullOrEmpty(ipAddress))
+			{
+				entity.CreatedByIpAddress = ipAddress.Length > 50 ? ipAddress.Substring(0, 50) : ipAddress;
+			}
+
+			if (!string.IsNullOrEmpty(userAgent))
+			{
+				entity.CreatedByUserAgent = userAgent.Length > 500 ? userAgent.Substring(0, 500) : userAgent;
+			}
+
+			if (!string.IsNullOrEmpty(timezone))
+			{
+				entity.Timezone = timezone;
+			}
+
+			if (!string.IsNullOrEmpty(country))
+			{
+				entity.Country = country;
+				entity.Region = country;
+			}
+
+			if (!string.IsNullOrEmpty(language))
+			{
+				entity.PrimaryLanguage = language;
+				if (!entity.SupportedLanguages.Contains(language))
+				{
+					entity.SupportedLanguages.Add(language);
+				}
+			}
+		}
+
+		// ✅ AUTO-CALL: Update cache info
+		UpdateCacheInfo(entity);
+
+		// ✅ AUTO-CALL: Update content hash
+		UpdateContentHash(entity);
+
+		// ✅ AUTO-CALL: Auto-verify data quality
+		AutoVerifyDataQuality(entity);
+
+		_logger.LogDebug("Created audit: {User} from {IP}", entity.CreatedBy, entity.CreatedByIpAddress);
+	}
+
+	/// <summary>
+	/// ✅ AUTO: Sets ALL update audit fields (12+ fields) + Cache + Hash + Quality
+	/// </summary>
+	private void SetUpdatedAuditFields(TEntity entity)
+	{
+		var now = DateTime.UtcNow;
+
+		entity.UpdatedAt = now;
+		entity.UpdateCount++;
+		entity.ConcurrencyStamp = Guid.NewGuid();
+		entity.LastValidatedAt = now;
+		entity.LastAccessedAt = now;
+		entity.AccessCount++;
+
+		if (_currentUserService != null)
+		{
+			var userId = _currentUserService.GetUserId();
+			var userName = _currentUserService.GetUserName();
+			var ipAddress = _currentUserService.GetIpAddress();
+			var userAgent = _currentUserService.GetUserAgent();
+
+			if (userId.HasValue)
+			{
+				entity.UpdatedByUserId = userId.Value;
+			}
+
+			if (!string.IsNullOrEmpty(userName))
+			{
+				entity.UpdatedBy = userName.Length > 200 ? userName.Substring(0, 200) : userName;
+			}
+
+			if (!string.IsNullOrEmpty(ipAddress))
+			{
+				entity.UpdatedByIpAddress = ipAddress.Length > 50 ? ipAddress.Substring(0, 50) : ipAddress;
+			}
+
+			if (!string.IsNullOrEmpty(userAgent))
+			{
+				entity.UpdatedByUserAgent = userAgent.Length > 500 ? userAgent.Substring(0, 500) : userAgent;
+			}
+		}
+
+		// ✅ AUTO-CALL: Update cache info
+		UpdateCacheInfo(entity);
+
+		// ✅ AUTO-CALL: Update content hash
+		UpdateContentHash(entity);
+
+		// ✅ AUTO-CALL: Auto-verify data quality
+		AutoVerifyDataQuality(entity);
+
+		_logger.LogDebug("Updated audit: {User} (count: {Count})", entity.UpdatedBy, entity.UpdateCount);
+	}
+
+	/// <summary>
+	/// ✅ SET ALL DELETED AUDIT FIELDS (5+ fields)
+	/// </summary>
+	private void SetDeletedAuditFields(TEntity entity, Guid? deletedByUserId = null, string? deleteReason = null)
+	{
+		var now = DateTime.UtcNow;
+
+		entity.IsDeleted = true;
+		entity.DeletedAt = now;
+		entity.DeletedReason = deleteReason;
+		entity.IsActive = false;
+
+		if (deletedByUserId.HasValue)
+		{
+			entity.DeletedByUserId = deletedByUserId.Value;
+			entity.DeletedBy = $"User:{deletedByUserId.Value}";
+		}
+		else if (_currentUserService != null)
+		{
+			var userId = _currentUserService.GetUserId();
+			var userName = _currentUserService.GetUserName();
+
+			if (userId.HasValue)
+			{
+				entity.DeletedByUserId = userId.Value;
+			}
+
+			if (!string.IsNullOrEmpty(userName))
+			{
+				entity.DeletedBy = userName.Length > 200 ? userName.Substring(0, 200) : userName;
+			}
+		}
+
+		_logger.LogDebug("Deleted audit: {User}, Reason: {Reason}", entity.DeletedBy, entity.DeletedReason);
+	}
+
+	/// <summary>
+	/// ✅ INCREMENT ACCESS TRACKING
+	/// </summary>
+	private void IncrementAccessTracking(TEntity entity)
+	{
+		var now = DateTime.UtcNow;
+		entity.AccessCount++;
+		entity.LastAccessedAt = now;
+	}
+
+	/// <summary>
+	/// ✅ INCREMENT VIEW TRACKING
+	/// </summary>
+	private void IncrementViewTracking(TEntity entity)
+	{
+		var now = DateTime.UtcNow;
+		entity.ViewCount++;
+		entity.LastViewedAt = now;
+	}
+
+	/// <summary>
+	/// ✅ SET ARCHIVING FIELDS
+	/// </summary>
+	private void SetArchivedFields(TEntity entity, Guid? archivedByUserId = null)
+	{
+		var now = DateTime.UtcNow;
+		entity.IsArchived = true;
+		entity.ArchivedAt = now;
+		entity.IsActive = false;
+		SetUpdatedAuditFields(entity);
+		if (archivedByUserId.HasValue)
+		{
+			entity.UpdatedByUserId = archivedByUserId.Value;
+		}
+	}
+
+	/// <summary>
+	/// ✅ SET LOCKING FIELDS
+	/// </summary>
+	private void SetLockedFields(TEntity entity, string? lockReason = null)
+	{
+		var now = DateTime.UtcNow;
+		entity.IsLocked = true;
+		entity.LockedAt = now;
+		entity.LockedReason = lockReason;
+
+		if (_currentUserService != null)
+		{
+			var userName = _currentUserService.GetUserName();
+			if (!string.IsNullOrEmpty(userName))
+			{
+				entity.LockedBy = userName;
+			}
+		}
+	}
+
+	/// <summary>
+	/// ✅ UNLOCK ENTITY
+	/// </summary>
+	private void UnlockEntity(TEntity entity)
+	{
+		entity.IsLocked = false;
+		entity.LockedAt = null;
+		entity.LockedBy = null;
+		entity.LockedReason = null;
+	}
+
+	/// <summary>
+	/// ✅ SET VERIFICATION FIELDS
+	/// </summary>
+	private void SetVerifiedFields(TEntity entity, double? dataQualityScore = null)
+	{
+		var now = DateTime.UtcNow;
+		entity.IsVerified = true;
+		entity.VerifiedAt = now;
+		entity.LastValidatedAt = now;
+
+		if (dataQualityScore.HasValue)
+		{
+			entity.DataQualityScore = dataQualityScore.Value;
+		}
+
+		if (_currentUserService != null)
+		{
+			var userName = _currentUserService.GetUserName();
+			if (!string.IsNullOrEmpty(userName))
+			{
+				entity.VerifiedBy = userName;
+			}
+		}
+	}
+
+	/// <summary>
+	/// ✅ INCREMENT VERSION
+	/// </summary>
+	private void IncrementVersion(TEntity entity, string? versionLabel = null)
+	{
+		entity.Version++;
+		entity.VersionLabel = versionLabel ?? $"v{entity.Version}";
+		entity.ConcurrencyStamp = Guid.NewGuid();
+		SetUpdatedAuditFields(entity);
+	}
+
+	/// <summary>
+	/// ✅ UPDATE CACHE INFO
+	/// </summary>
+	private void UpdateCacheInfo(TEntity entity, int? cacheDurationSeconds = null)
+	{
+		var now = DateTime.UtcNow;
+		entity.CachedAt = now;
+		entity.CacheDurationSeconds = cacheDurationSeconds ?? 900;
+		entity.CacheKey = $"{typeof(TEntity).Name}:{entity.Id}";
+	}
+
+	/// <summary>
+	/// ✅ UPDATE CONTENT HASH
+	/// </summary>
+	private void UpdateContentHash(TEntity entity)
+	{
+		try
+		{
+			var content = JsonSerializer.Serialize(entity);
+			using var sha256 = System.Security.Cryptography.SHA256.Create();
+			var hashBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(content));
+			entity.ContentHash = Convert.ToBase64String(hashBytes);
+			entity.Checksum = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
+			entity.ETag = $"\"{entity.ContentHash}\"";
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(ex, "Failed to update content hash for {EntityType}", typeof(TEntity).Name);
+		}
+	}
+
+	/// <summary>
+	/// ✅ AUTO-VERIFY DATA QUALITY (Auto-calculate quality score)
+	/// </summary>
+	private void AutoVerifyDataQuality(TEntity entity)
+	{
+		try
+		{
+			// Simple data quality scoring based on completeness
+			int score = 0;
+			int totalFields = 0;
+
+			var properties = typeof(TEntity).GetProperties()
+				.Where(p => p.CanRead && p.PropertyType != typeof(byte[]) && !p.Name.StartsWith("Navigation"));
+
+			foreach (var prop in properties)
+			{
+				totalFields++;
+				var value = prop.GetValue(entity);
+				if (value != null && !string.IsNullOrWhiteSpace(value.ToString()))
+				{
+					score++;
+				}
+			}
+
+			if (totalFields > 0)
+			{
+				entity.DataQualityScore = (double)score / totalFields * 100;
+
+				// Auto-verify if quality is high enough
+				if (entity.DataQualityScore >= 80.0)
+				{
+					entity.IsVerified = true;
+					entity.VerifiedAt = DateTime.UtcNow;
+
+					if (_currentUserService != null)
+					{
+						var userName = _currentUserService.GetUserName();
+						if (!string.IsNullOrEmpty(userName))
+						{
+							entity.VerifiedBy = userName;
+						}
+					}
+				}
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogWarning(ex, "Failed to auto-verify data quality for {EntityType}", typeof(TEntity).Name);
+		}
+	}
+
+	#endregion
+
+	#region Query Operations
 
 	public virtual async Task<TDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
 	{
@@ -68,18 +437,29 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 		{
 			_logger.LogDebug("Getting {EntityType} by ID: {Id}", typeof(TEntity).Name, id);
 
-			var result = await Context.Set<TEntity>()
-				.AsNoTracking()
+			// ✅ AUTO: Get entity with view tracking
+			var entity = await Context.Set<TEntity>()
 				.Where(e => e.Id!.Equals(id) && !e.IsDeleted)
-				.ProjectToType<TDto>()
 				.FirstOrDefaultAsync(cancellationToken);
 
-			if (result != null)
-				_logger.LogDebug("{EntityType} with ID {Id} found", typeof(TEntity).Name, id);
-			else
-				_logger.LogDebug("{EntityType} with ID {Id} not found", typeof(TEntity).Name, id);
+			if (entity != null)
+			{
+				// ✅ AUTO-CALL: Increment view tracking
+				IncrementViewTracking(entity);
 
-			return result;
+				// Save view count immediately
+				await Context.SaveChangesAsync(cancellationToken);
+
+				_logger.LogDebug("{EntityType} with ID {Id} found (ViewCount: {ViewCount})",
+					typeof(TEntity).Name, id, entity.ViewCount);
+
+				return entity.Adapt<TDto>();
+			}
+			else
+			{
+				_logger.LogDebug("{EntityType} with ID {Id} not found", typeof(TEntity).Name, id);
+				return null;
+			}
 		}
 		catch (OperationCanceledException)
 		{
@@ -101,7 +481,6 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				typeof(TEntity).Name, includes.Length, id);
 
 			var query = Context.Set<TEntity>()
-				.AsNoTracking()
 				.Where(e => e.Id!.Equals(id) && !e.IsDeleted);
 
 			foreach (var include in includes)
@@ -109,12 +488,21 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				query = query.Include(include);
 			}
 
-			var result = await query
-				.ProjectToType<TDto>()
-				.FirstOrDefaultAsync();
+			var entity = await query.FirstOrDefaultAsync();
 
-			_logger.LogDebug("{EntityType} with ID {Id} and includes retrieved", typeof(TEntity).Name, id);
-			return result;
+			if (entity != null)
+			{
+				// ✅ AUTO-CALL: Increment view tracking
+				IncrementViewTracking(entity);
+
+				// Save view count immediately
+				await Context.SaveChangesAsync();
+
+				_logger.LogDebug("{EntityType} with ID {Id} retrieved with view tracking", typeof(TEntity).Name, id);
+				return entity.Adapt<TDto>();
+			}
+
+			return null;
 		}
 		catch (Exception ex)
 		{
@@ -561,7 +949,7 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 
 	#endregion
 
-	#region Command Operations (NO SaveChangesAsync)
+	#region Command Operations with Comprehensive Audit
 
 	public virtual async Task<TDto> AddAsync(TDto dto, CancellationToken cancellationToken = default)
 	{
@@ -570,13 +958,11 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogDebug("Adding new {EntityType}", typeof(TEntity).Name);
 
 			var entity = dto.Adapt<TEntity>();
-			entity.CreatedAt = DateTime.UtcNow;
-			entity.IsDeleted = false;
+			SetCreatedAuditFields(entity);
 
 			await Context.Set<TEntity>().AddAsync(entity, cancellationToken);
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
-			_logger.LogDebug("New {EntityType} added to context", typeof(TEntity).Name);
+			_logger.LogDebug("New {EntityType} added with audit", typeof(TEntity).Name);
 			return entity.Adapt<TDto>();
 		}
 		catch (OperationCanceledException)
@@ -599,18 +985,15 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogDebug("Adding {Count} {EntityType} entities", dtoList.Count, typeof(TEntity).Name);
 
 			var entities = dtoList.Adapt<List<TEntity>>();
-			var now = DateTime.UtcNow;
 
 			foreach (var entity in entities)
 			{
-				entity.CreatedAt = now;
-				entity.IsDeleted = false;
+				SetCreatedAuditFields(entity);
 			}
 
 			await Context.Set<TEntity>().AddRangeAsync(entities, cancellationToken);
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
-			_logger.LogDebug("Added {Count} {EntityType} entities to context", entities.Count, typeof(TEntity).Name);
+			_logger.LogDebug("Added {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 			return entities.Adapt<List<TDto>>();
 		}
 		catch (OperationCanceledException)
@@ -632,14 +1015,13 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogDebug("Updating {EntityType}", typeof(TEntity).Name);
 
 			var entity = dto.Adapt<TEntity>();
-			entity.UpdatedAt = DateTime.UtcNow;
+			SetUpdatedAuditFields(entity);
 
 			Context.Set<TEntity>().Update(entity);
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
 			await InvalidateCacheAsync(entity.Id);
 
-			_logger.LogDebug("{EntityType} updated in context", typeof(TEntity).Name);
+			_logger.LogDebug("{EntityType} updated with audit", typeof(TEntity).Name);
 			return entity.Adapt<TDto>();
 		}
 		catch (Exception ex)
@@ -657,22 +1039,20 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogDebug("Updating {Count} {EntityType} entities", dtoList.Count, typeof(TEntity).Name);
 
 			var entities = dtoList.Adapt<List<TEntity>>();
-			var now = DateTime.UtcNow;
 
 			foreach (var entity in entities)
 			{
-				entity.UpdatedAt = now;
+				SetUpdatedAuditFields(entity);
 			}
 
 			Context.Set<TEntity>().UpdateRange(entities);
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
 			foreach (var entity in entities)
 			{
 				await InvalidateCacheAsync(entity.Id);
 			}
 
-			_logger.LogDebug("Updated {Count} {EntityType} entities in context", entities.Count, typeof(TEntity).Name);
+			_logger.LogDebug("Updated {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 		}
 		catch (Exception ex)
 		{
@@ -707,12 +1087,11 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				}
 			}
 
-			entity.UpdatedAt = DateTime.UtcNow;
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
+			SetUpdatedAuditFields(entity);
 
 			await InvalidateCacheAsync(id);
 
-			_logger.LogDebug("{EntityType} ID {Id} patched successfully", typeof(TEntity).Name, id);
+			_logger.LogDebug("{EntityType} ID {Id} patched with audit", typeof(TEntity).Name, id);
 			return entity.Adapt<TDto>();
 		}
 		catch (OperationCanceledException)
@@ -739,10 +1118,9 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			if (entity != null)
 			{
 				Context.Set<TEntity>().Remove(entity);
-				// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
 				await InvalidateCacheAsync(id);
-				_logger.LogDebug("{EntityType} ID {Id} deleted from context", typeof(TEntity).Name, id);
+				_logger.LogDebug("{EntityType} ID {Id} deleted", typeof(TEntity).Name, id);
 			}
 			else
 			{
@@ -773,14 +1151,13 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				.ToListAsync(cancellationToken);
 
 			Context.Set<TEntity>().RemoveRange(entities);
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
 			foreach (var id in idList)
 			{
 				await InvalidateCacheAsync(id);
 			}
 
-			_logger.LogDebug("Deleted {Count} {EntityType} entities from context", entities.Count, typeof(TEntity).Name);
+			_logger.LogDebug("Deleted {Count} {EntityType} entities", entities.Count, typeof(TEntity).Name);
 		}
 		catch (OperationCanceledException)
 		{
@@ -809,13 +1186,10 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 
 			if (entity != null)
 			{
-				entity.IsDeleted = true;
-				entity.DeletedAt = DateTime.UtcNow;
-				entity.DeletedByUserId = deletedBy;
-				// ✅ NO SaveChangesAsync - UnitOfWork pattern
+				SetDeletedAuditFields(entity, deletedBy);
 
 				await InvalidateCacheAsync(id);
-				_logger.LogDebug("{EntityType} ID {Id} soft deleted", typeof(TEntity).Name, id);
+				_logger.LogDebug("{EntityType} ID {Id} soft deleted with audit", typeof(TEntity).Name, id);
 			}
 			else
 			{
@@ -845,21 +1219,17 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				.Where(e => idList.Contains(e.Id) && !e.IsDeleted)
 				.ToListAsync(cancellationToken);
 
-			var now = DateTime.UtcNow;
 			foreach (var entity in entities)
 			{
-				entity.IsDeleted = true;
-				entity.DeletedAt = now;
-				entity.DeletedByUserId = deletedBy;
+				SetDeletedAuditFields(entity, deletedBy);
 			}
-			// ✅ NO SaveChangesAsync - UnitOfWork pattern
 
 			foreach (var id in idList)
 			{
 				await InvalidateCacheAsync(id);
 			}
 
-			_logger.LogDebug("Soft deleted {Count} {EntityType} entities", entities.Count, typeof(TEntity).Name);
+			_logger.LogDebug("Soft deleted {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 		}
 		catch (OperationCanceledException)
 		{
@@ -888,11 +1258,13 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 				entity.IsDeleted = false;
 				entity.DeletedAt = null;
 				entity.DeletedBy = null;
-				entity.UpdatedAt = DateTime.UtcNow;
-				// ✅ NO SaveChangesAsync - UnitOfWork pattern
+				entity.DeletedByUserId = null;
+				entity.DeletedReason = null;
+
+				SetUpdatedAuditFields(entity);
 
 				await InvalidateCacheAsync(id);
-				_logger.LogDebug("{EntityType} ID {Id} restored", typeof(TEntity).Name, id);
+				_logger.LogDebug("{EntityType} ID {Id} restored with audit", typeof(TEntity).Name, id);
 			}
 			else
 			{
@@ -960,17 +1332,15 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogInformation("Bulk inserting {Count} {EntityType} entities", dtoList.Count, typeof(TEntity).Name);
 
 			var entities = dtoList.Adapt<List<TEntity>>();
-			var now = DateTime.UtcNow;
 
 			foreach (var entity in entities)
 			{
-				entity.CreatedAt = now;
-				entity.IsDeleted = false;
+				SetCreatedAuditFields(entity);
 			}
 
 			await Context.BulkInsertAsync(entities, cancellationToken: cancellationToken);
 
-			_logger.LogInformation("Bulk inserted {Count} {EntityType} entities successfully", entities.Count, typeof(TEntity).Name);
+			_logger.LogInformation("Bulk inserted {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 			return entities.Count;
 		}
 		catch (OperationCanceledException)
@@ -993,17 +1363,16 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogInformation("Bulk updating {Count} {EntityType} entities", dtoList.Count, typeof(TEntity).Name);
 
 			var entities = dtoList.Adapt<List<TEntity>>();
-			var now = DateTime.UtcNow;
 
 			foreach (var entity in entities)
 			{
-				entity.UpdatedAt = now;
+				SetUpdatedAuditFields(entity);
 			}
 
 			await Context.BulkUpdateAsync(entities, cancellationToken: cancellationToken);
 			await InvalidateAllCacheAsync();
 
-			_logger.LogInformation("Bulk updated {Count} {EntityType} entities successfully", entities.Count, typeof(TEntity).Name);
+			_logger.LogInformation("Bulk updated {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 			return entities.Count;
 		}
 		catch (OperationCanceledException)
@@ -1031,7 +1400,7 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			await Context.BulkDeleteAsync(entities, cancellationToken: cancellationToken);
 			await InvalidateAllCacheAsync();
 
-			_logger.LogInformation("Bulk deleted {Count} {EntityType} entities successfully", entities.Count, typeof(TEntity).Name);
+			_logger.LogInformation("Bulk deleted {Count} {EntityType} entities", entities.Count, typeof(TEntity).Name);
 			return entities.Count;
 		}
 		catch (OperationCanceledException)
@@ -1054,21 +1423,20 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 			_logger.LogInformation("Bulk upserting {Count} {EntityType} entities", dtoList.Count, typeof(TEntity).Name);
 
 			var entities = dtoList.Adapt<List<TEntity>>();
-			var now = DateTime.UtcNow;
 
 			foreach (var entity in entities)
 			{
-				entity.UpdatedAt = now;
+				SetUpdatedAuditFields(entity);
 				if (entity.CreatedAt == default)
 				{
-					entity.CreatedAt = now;
+					SetCreatedAuditFields(entity);
 				}
 			}
 
 			await Context.BulkInsertOrUpdateAsync(entities, cancellationToken: cancellationToken);
 			await InvalidateAllCacheAsync();
 
-			_logger.LogInformation("Bulk upserted {Count} {EntityType} entities successfully", entities.Count, typeof(TEntity).Name);
+			_logger.LogInformation("Bulk upserted {Count} {EntityType} entities with audit", entities.Count, typeof(TEntity).Name);
 			return entities.Count;
 		}
 		catch (OperationCanceledException)
@@ -1250,7 +1618,7 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 						cancellationToken);
 				}
 
-				_logger.LogDebug("{EntityType} ID {Id} fetched from database and cached", typeof(TEntity).Name, id);
+				_logger.LogDebug("{EntityType} ID {Id} fetched and cached", typeof(TEntity).Name, id);
 			}
 
 			return dto;
@@ -1286,7 +1654,6 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Error invalidating cache for {EntityType} ID {Id}", typeof(TEntity).Name, id);
-			// Don't throw - cache invalidation failure shouldn't break operations
 		}
 	}
 
@@ -1295,13 +1662,11 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 		try
 		{
 			_logger.LogDebug("Invalidating all cache for {EntityType}", typeof(TEntity).Name);
-			// Implementation depends on cache provider
 			await Task.CompletedTask;
 		}
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Error invalidating all cache for {EntityType}", typeof(TEntity).Name);
-			// Don't throw - cache invalidation failure shouldn't break operations
 		}
 	}
 
@@ -1648,6 +2013,308 @@ public class RepositoryBase<TEntity, TDto> : IRepository<TEntity, TDto>
 		catch (Exception ex)
 		{
 			_logger.LogError(ex, "Error executing operation in transaction for {EntityType}", typeof(TEntity).Name);
+			throw;
+		}
+	}
+
+	#endregion
+
+	#region Business Logic Operations - Archive, Lock, Verify, Version
+
+	/// <summary>
+	/// ✅ Archive entity (calls SetArchivedFields automatically)
+	/// </summary>
+	public virtual async Task ArchiveAsync(Guid id, Guid? archivedByUserId = null, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Archiving {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity != null)
+			{
+				SetArchivedFields(entity, archivedByUserId);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} archived", typeof(TEntity).Name, id);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error archiving {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Archive multiple entities
+	/// </summary>
+	public virtual async Task ArchiveRangeAsync(IEnumerable<Guid> ids, Guid? archivedByUserId = null, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			var idList = ids.ToList();
+			_logger.LogDebug("Archiving {Count} {EntityType} entities", idList.Count, typeof(TEntity).Name);
+
+			var entities = await Context.Set<TEntity>()
+				.Where(e => idList.Contains(e.Id) && !e.IsDeleted)
+				.ToListAsync(cancellationToken);
+
+			foreach (var entity in entities)
+			{
+				SetArchivedFields(entity, archivedByUserId);  // ✅ AUTO-CALL
+			}
+
+			foreach (var id in idList)
+			{
+				await InvalidateCacheAsync(id);
+			}
+
+			_logger.LogDebug("Archived {Count} {EntityType} entities", entities.Count, typeof(TEntity).Name);
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error archiving range of {EntityType}", typeof(TEntity).Name);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Unarchive entity
+	/// </summary>
+	public virtual async Task UnarchiveAsync(Guid id, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Unarchiving {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && e.IsArchived, cancellationToken);
+
+			if (entity != null)
+			{
+				entity.IsArchived = false;
+				entity.ArchivedAt = null;
+				entity.IsActive = true;
+
+				SetUpdatedAuditFields(entity);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} unarchived", typeof(TEntity).Name, id);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error unarchiving {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Lock entity (calls SetLockedFields automatically)
+	/// </summary>
+	public virtual async Task LockAsync(Guid id, string? lockReason = null, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Locking {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity != null)
+			{
+				if (entity.IsLocked)
+				{
+					throw new InvalidOperationException($"{typeof(TEntity).Name} with ID {id} is already locked by {entity.LockedBy}");
+				}
+
+				SetLockedFields(entity, lockReason);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} locked", typeof(TEntity).Name, id);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error locking {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Unlock entity (calls UnlockEntity automatically)
+	/// </summary>
+	public virtual async Task UnlockAsync(Guid id, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Unlocking {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity != null)
+			{
+				UnlockEntity(entity);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} unlocked", typeof(TEntity).Name, id);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error unlocking {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Verify entity (calls SetVerifiedFields automatically)
+	/// </summary>
+	public virtual async Task VerifyAsync(Guid id, double? dataQualityScore = null, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Verifying {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity != null)
+			{
+				SetVerifiedFields(entity, dataQualityScore);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} verified with score {Score}",
+					typeof(TEntity).Name, id, entity.DataQualityScore);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error verifying {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Unverify entity
+	/// </summary>
+	public virtual async Task UnverifyAsync(Guid id, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Unverifying {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity != null)
+			{
+				entity.IsVerified = false;
+				entity.VerifiedAt = null;
+				entity.VerifiedBy = null;
+				entity.DataQualityScore = null;
+
+				SetUpdatedAuditFields(entity);  // ✅ AUTO-CALL
+				await InvalidateCacheAsync(id);
+				_logger.LogDebug("{EntityType} ID {Id} unverified", typeof(TEntity).Name, id);
+			}
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error unverifying {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Create new version (calls IncrementVersion automatically)
+	/// </summary>
+	public virtual async Task<TDto> CreateNewVersionAsync(Guid id, string? versionLabel = null, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Creating new version of {EntityType} ID {Id}", typeof(TEntity).Name, id);
+
+			var entity = await Context.Set<TEntity>()
+				.FirstOrDefaultAsync(e => e.Id!.Equals(id) && !e.IsDeleted, cancellationToken);
+
+			if (entity == null)
+			{
+				throw new KeyNotFoundException($"{typeof(TEntity).Name} with ID {id} not found");
+			}
+
+			// Mark current version as not latest
+			entity.IsLatestVersion = false;
+
+			// Create new version
+			var newEntity = entity.Adapt<TEntity>();
+			newEntity.Id = Guid.NewGuid();
+			newEntity.ParentId = entity.Id;
+
+			IncrementVersion(newEntity, versionLabel);  // ✅ AUTO-CALL
+
+			await Context.Set<TEntity>().AddAsync(newEntity, cancellationToken);
+
+			_logger.LogDebug("Created new version {Version} of {EntityType}",
+				newEntity.Version, typeof(TEntity).Name);
+
+			return newEntity.Adapt<TDto>();
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error creating new version of {EntityType} ID {Id}", typeof(TEntity).Name, id);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Get all versions of an entity
+	/// </summary>
+	public virtual async Task<List<TDto>> GetVersionsAsync(Guid parentId, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Getting versions for {EntityType} parent ID {ParentId}", typeof(TEntity).Name, parentId);
+
+			var versions = await Context.Set<TEntity>()
+				.AsNoTracking()
+				.Where(e => e.ParentId == parentId || e.Id == parentId)
+				.OrderBy(e => e.Version)
+				.ProjectToType<TDto>()
+				.ToListAsync(cancellationToken);
+
+			_logger.LogDebug("Found {Count} versions for {EntityType}", versions.Count, typeof(TEntity).Name);
+			return versions;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error getting versions for {EntityType} parent ID {ParentId}",
+				typeof(TEntity).Name, parentId);
+			throw;
+		}
+	}
+
+	/// <summary>
+	/// ✅ Get latest version of an entity
+	/// </summary>
+	public virtual async Task<TDto?> GetLatestVersionAsync(Guid parentId, CancellationToken cancellationToken = default)
+	{
+		try
+		{
+			_logger.LogDebug("Getting latest version for {EntityType} parent ID {ParentId}",
+				typeof(TEntity).Name, parentId);
+
+			var latestVersion = await Context.Set<TEntity>()
+				.AsNoTracking()
+				.Where(e => (e.ParentId == parentId || e.Id == parentId) && e.IsLatestVersion)
+				.ProjectToType<TDto>()
+				.FirstOrDefaultAsync(cancellationToken);
+
+			return latestVersion;
+		}
+		catch (Exception ex)
+		{
+			_logger.LogError(ex, "Error getting latest version for {EntityType} parent ID {ParentId}",
+				typeof(TEntity).Name, parentId);
 			throw;
 		}
 	}
