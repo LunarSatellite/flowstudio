@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="DTO\Base\" />
     <Folder Include="Entity\Base\" />
   </ItemGroup>
 

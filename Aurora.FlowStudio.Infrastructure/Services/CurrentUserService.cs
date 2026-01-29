@@ -37,6 +37,11 @@ public class CurrentUserService : ICurrentUserService
             ?? _httpContextAccessor.HttpContext?.User?.FindFirst("username")?.Value;
     }
 
+    public string? GetUserEmail()
+    {
+        return _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.Email)?.Value;
+    }
+
     public Guid? GetTenantId()
     {
         var tenantIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("tenantId")?.Value

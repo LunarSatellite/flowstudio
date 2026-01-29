@@ -1,31 +1,33 @@
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using Aurora.FlowStudio.Entity.Base;
 
-namespace Aurora.FlowStudio.Entity.Entity.Flow
+namespace Aurora.FlowStudio.Entity.Flow
 {
-    [Table("FlowConnections", Schema = "flow")]
-
-    [Index(nameof(TenantId), nameof(IsDeleted))]
-[Index(nameof(CreatedAt))]
-
+    /// <summary>
+    /// Connection between flow nodes
+    /// </summary>
+    [Table("FlowConnections")]
     public class FlowConnection : TenantBaseEntity
     {
+        [Required]
         public Guid FlowId { get; set; }
-        public Guid SourceNodeId { get; set; }
-        public Guid TargetNodeId { get; set; }
-        [MaxLength(200)]
-        public string? Label { get; set; }
-        public ConnectionType Type { get; set; } = ConnectionType.Default;
-        public Dictionary<string, object> Condition { get; set; } = new();
-        public int Priority { get; set; } = 0;
-        public Dictionary<string, object> Metadata { get; set; } = new();
-
-        // Navigation properties
-        public Flow Flow { get; set; } = null!;
-        public FlowNode SourceNode { get; set; } = null!;
-        public FlowNode TargetNode { get; set; } = null!;
+        
+        [Required]
+        [MaxLength(100)]
+        public string SourceNodeId { get; set; }
+        
+        [Required]
+        [MaxLength(100)]
+        public string TargetNodeId { get; set; }
+        
+        [MaxLength(100)]
+        public string Label { get; set; }
+        
+        [MaxLength(500)]
+        public string Condition { get; set; }
+        
+        public int ExecutionCount { get; set; }
     }
 }

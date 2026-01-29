@@ -1,54 +1,57 @@
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using Aurora.FlowStudio.Entity.Base;
+using Aurora.FlowStudio.Entity.Enums;
 
-namespace Aurora.FlowStudio.Entity.Entity.Conversation
+namespace Aurora.FlowStudio.Entity.Conversation
 {
-    [Table("Conversations", Schema = "conv")]
-
-    [Index(nameof(TenantId), nameof(IsDeleted))]
-[Index(nameof(CreatedAt))]
-
+    /// <summary>
+    /// Customer interaction session across any channel
+    /// </summary>
+    [Table("Conversations")]
     public class Conversation : TenantBaseEntity
     {
-        public Guid FlowId { get; set; }
-        public Guid? UserId { get; set; }
         public Guid? CustomerId { get; set; }
-        [MaxLength(100)]
-        public string? SessionId { get; set; }
-        public ConversationChannel Channel { get; set; } = ConversationChannel.WebChat;
-        public ConversationStatus Status { get; set; } = ConversationStatus.Active;
-        public ConversationPriority Priority { get; set; } = ConversationPriority.Normal;
-        [Column(TypeName = "datetime2")]
-        public DateTime StartedAt { get; set; } = DateTime.UtcNow;
-        [Column(TypeName = "datetime2")]
+        
+        [Required]
+        public ChannelType Channel { get; set; }
+        
+        [Required]
+        [MaxLength(255)]
+        public string SessionId { get; set; }
+        
+        [Required]
+        public ConversationStatus Status { get; set; }
+        
+        public Guid? ActiveFlowId { get; set; }
+        
+        [Column(TypeName = "jsonb")]
+        public Dictionary<string, object> CurrentState { get; set; }
+        
+        [Required]
+        public DateTime StartedAt { get; set; }
+        
         public DateTime? EndedAt { get; set; }
-        public int MessageCount { get; set; } = 0;
-        [MaxLength(200)]
-        public string? IpAddress { get; set; }
-        [MaxLength(200)]
-        public string? UserAgent { get; set; }
-        [MaxLength(200)]
-        public string? DeviceType { get; set; }
-        [MaxLength(200)]
-        public string? Language { get; set; }
-        [MaxLength(200)]
-        public string? Country { get; set; }
-        public Guid? CurrentNodeId { get; set; }
-        public Dictionary<string, object> Context { get; set; } = new();
-        public Dictionary<string, object> Variables { get; set; } = new();
-        public Dictionary<string, object> Metadata { get; set; } = new();
-        public ConversationMetrics Metrics { get; set; } = new();
-
-        // Navigation properties
-        public Core.User? User { get; set; }
-        public Customer? Customer { get; set; }
-        public Flow.Flow Flow { get; set; } = null!;
-        public ICollection<Message> Messages { get; set; } = new List<Message>();
-        public ICollection<ConversationTag> Tags { get; set; } = new List<ConversationTag>();
-        public ICollection<ConversationNote> Notes { get; set; } = new List<ConversationNote>();
-        public ICollection<ConversationFeedback> Feedbacks { get; set; } = new List<ConversationFeedback>();
+        
+        public int MessageCount { get; set; }
+        
+        public int TokensUsed { get; set; }
+        
+        public int VoiceMinutesUsed { get; set; }
+        
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal TotalCost { get; set; }
+        
+        [MaxLength(10)]
+        public string Language { get; set; }
+        
+        public bool IsResolved { get; set; }
+        
+        public int? Rating { get; set; }
+        
+        [MaxLength(1000)]
+        public string Feedback { get; set; }
     }
 }

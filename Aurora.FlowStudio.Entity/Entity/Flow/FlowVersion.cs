@@ -1,29 +1,32 @@
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using Aurora.FlowStudio.Entity.Base;
 
-namespace Aurora.FlowStudio.Entity.Entity.Flow
+namespace Aurora.FlowStudio.Entity.Flow
 {
-    [Table("FlowVersions", Schema = "flow")]
-
-    [Index(nameof(TenantId), nameof(IsDeleted))]
-[Index(nameof(CreatedAt))]
-
+    /// <summary>
+    /// Flow version history
+    /// </summary>
+    [Table("FlowVersions")]
     public class FlowVersion : TenantBaseEntity
     {
+        [Required]
         public Guid FlowId { get; set; }
+        
+        [Required]
         public int Version { get; set; }
-        [MaxLength(4000)]
-        public string? Description { get; set; }
-        [MaxLength(200)]
-        public string FlowSnapshot { get; set; } = string.Empty; // JSON serialized flow
-        [MaxLength(200)]
-        public string? ChangeSummary { get; set; }
-        public bool IsActive { get; set; } = false;
-
-        // Navigation properties
-        public Flow Flow { get; set; } = null!;
+        
+        [Column(TypeName = "jsonb")]
+        public Dictionary<string, object> FlowData { get; set; }
+        
+        [MaxLength(1000)]
+        public string ChangeNotes { get; set; }
+        
+        [Required]
+        public Guid CreatedBy { get; set; }
+        
+        public bool IsActive { get; set; }
     }
 }

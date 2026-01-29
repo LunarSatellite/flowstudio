@@ -17,6 +17,11 @@ public interface ICurrentUserService
     string? GetUserName();
 
     /// <summary>
+    /// Get current user's username/email
+    /// </summary>
+    string? GetUserEmail();
+
+    /// <summary>
     /// Get current user's tenant ID (for multi-tenancy)
     /// </summary>
     Guid? GetTenantId();

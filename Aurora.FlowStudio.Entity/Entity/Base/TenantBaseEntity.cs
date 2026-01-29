@@ -1,49 +1,44 @@
+using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
-namespace Aurora.FlowStudio.Entity.Entity.Base
+namespace Aurora.FlowStudio.Entity.Base
 {
     /// <summary>
-    /// Base entity with tenant support for multi-tenancy
+    /// Base entity for tenant-specific data (multi-tenancy support)
+    /// Inherits all 25+ audit fields from BaseEntity
+    /// Auto-filtered by TenantId in global query filters
     /// </summary>
-    [Index(nameof(TenantId))]
-    [Index(nameof(TenantId), nameof(IsDeleted))]
     public abstract class TenantBaseEntity : BaseEntity
     {
-        // Tenant Association
+        /// <summary>
+        /// Tenant ID for multi-tenancy isolation
+        /// All queries automatically filter by this field
+        /// </summary>
         [Required]
         public Guid TenantId { get; set; }
-        
-        [MaxLength(200)]
-        [Column(TypeName = "nvarchar(200)")]
-        public string? TenantName { get; set; }
-        
-        // Tenant-specific Configuration
-        public bool IsTenantWide { get; set; } = true;
-        public bool IsSharedAcrossTenants { get; set; } = false;
-        public List<Guid> SharedWithTenants { get; set; } = new();
-        
-        // Tenant Isolation
-        public string? TenantSchema { get; set; }
-        public string? TenantDatabaseId { get; set; }
-        
-        // Tenant Billing & Usage
-        public bool IsBillable { get; set; } = true;
-        public decimal? UsageCost { get; set; }
-        public string? BillingCategory { get; set; }
-        
-        // Tenant Permissions
-        public bool InheritTenantPermissions { get; set; } = true;
-        public Dictionary<string, object> TenantPermissions { get; set; } = new();
-        
-        // Tenant Quotas & Limits
-        public bool CountsTowardQuota { get; set; } = true;
-        public string? QuotaCategory { get; set; }
-        public long? SizeInBytes { get; set; }
-        
-        // Cross-Tenant References
-        public Guid? OriginTenantId { get; set; }
-        public bool IsCopiedFromAnotherTenant { get; set; } = false;
+
+        /// <summary>
+        /// Ensure tenant ID is set during creation
+        /// Called automatically by Repository.SetCreatedAuditFields
+        /// </summary>
+        public virtual void SetTenant(Guid tenantId)
+        {
+            if (TenantId == Guid.Empty)
+            {
+                TenantId = tenantId;
+            }
+        }
+
+        /// <summary>
+        /// Validate tenant context (throws if mismatch)
+        /// </summary>
+        public virtual void ValidateTenant(Guid expectedTenantId)
+        {
+            if (TenantId != expectedTenantId)
+            {
+                throw new InvalidOperationException(
+                    $"Tenant mismatch. Expected: {expectedTenantId}, Actual: {TenantId}");
+            }
+        }
     }
 }

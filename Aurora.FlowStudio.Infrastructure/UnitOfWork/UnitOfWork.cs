@@ -1,4 +1,4 @@
-using Aurora.FlowStudio.Entity.Entity.Base;
+using Aurora.FlowStudio.Entity.Base;
 using Aurora.FlowStudio.Infrastructure.Implementations;
 using Aurora.FlowStudio.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore.Storage;

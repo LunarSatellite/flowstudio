@@ -1,195 +1,151 @@
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
-namespace Aurora.FlowStudio.Entity.Entity.Base
+namespace Aurora.FlowStudio.Entity.Base
 {
     /// <summary>
-    /// Base entity with comprehensive audit fields, soft delete, concurrency control, and metadata
+    /// Optimized Base Entity
+    /// 12 essential columns + 1 JSON metadata column = 13 total columns
+    /// Much cleaner than 56 columns!
     /// </summary>
-    [Index(nameof(CreatedAt))]
-    [Index(nameof(IsDeleted))]
-    [Index(nameof(CreatedAt), nameof(IsDeleted))]
     public abstract class BaseEntity
     {
-        // Primary Key
+        #region Essential Columns (12) - Indexed for fast queries
+
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public Guid Id { get; set; } = Guid.NewGuid();
-        
-        // Audit Trail - Creation
+        public Guid Id { get; set; }
+
         [Required]
-        [Column(TypeName = "datetime2")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        [MaxLength(200)]
-        [Column(TypeName = "nvarchar(200)")]
-        public string? CreatedBy { get; set; }
-        
+        public DateTime CreatedAt { get; set; }
+
         public Guid? CreatedByUserId { get; set; }
-        
-        [MaxLength(50)]
-        [Column(TypeName = "varchar(50)")]
-        public string? CreatedByIpAddress { get; set; }
-        
-        [MaxLength(500)]
-        [Column(TypeName = "nvarchar(500)")]
-        public string? CreatedByUserAgent { get; set; }
-        
-        // Audit Trail - Modification
-        [Column(TypeName = "datetime2")]
+
         public DateTime? UpdatedAt { get; set; }
-        
-        [MaxLength(200)]
-        [Column(TypeName = "nvarchar(200)")]
-        public string? UpdatedBy { get; set; }
-        
+
         public Guid? UpdatedByUserId { get; set; }
-        
-        [MaxLength(50)]
-        [Column(TypeName = "varchar(50)")]
-        public string? UpdatedByIpAddress { get; set; }
-        
-        [MaxLength(500)]
-        [Column(TypeName = "nvarchar(500)")]
-        public string? UpdatedByUserAgent { get; set; }
-        
-        public int UpdateCount { get; set; } = 0;
-        
-        // Soft Delete
-        [Required]
-        public bool IsDeleted { get; set; } = false;
-        
-        [Column(TypeName = "datetime2")]
+
+        public bool IsDeleted { get; set; }
+
         public DateTime? DeletedAt { get; set; }
-        
-        [MaxLength(200)]
-        [Column(TypeName = "nvarchar(200)")]
-        public string? DeletedBy { get; set; }
-        
+
         public Guid? DeletedByUserId { get; set; }
-        
-        [MaxLength(500)]
-        [Column(TypeName = "nvarchar(500)")]
-        public string? DeletedReason { get; set; }
-        
-        // Concurrency Control
+
+        public bool IsActive { get; set; }
+
+        public int Version { get; set; }
+
+        public Guid ConcurrencyStamp { get; set; }
+
         [Timestamp]
-        [Required]
-        public byte[] RowVersion { get; set; } = Array.Empty<byte>();
-        
-        [Required]
-        public Guid ConcurrencyStamp { get; set; } = Guid.NewGuid();
-        
-        // Archiving & Retention
-        public bool IsArchived { get; set; } = false;
-        public DateTime? ArchivedAt { get; set; }
-        public DateTime? ExpiresAt { get; set; }
-        public DateTime? RetentionUntil { get; set; }
-        
-        // Status & State Management
-        public bool IsActive { get; set; } = true;
-        public bool IsLocked { get; set; } = false;
+        public byte[]? RowVersion { get; set; }
+
+        #endregion
+
+        #region JSON Metadata Column
+
+        [Column(TypeName = "jsonb")]
+        public AuditMetadata Metadata { get; set; }
+
+        #endregion
+
+        protected BaseEntity()
+        {
+            Id = Guid.NewGuid();
+            CreatedAt = DateTime.UtcNow;
+            IsDeleted = false;
+            IsActive = true;
+            Version = 1;
+            ConcurrencyStamp = Guid.NewGuid();
+            Metadata = new AuditMetadata();
+        }
+    }
+
+    /// <summary>
+    /// Audit metadata - All fields that RepositoryBase needs in JSON
+    /// </summary>
+    public class AuditMetadata
+    {
+        // Creation Audit
+        public string? CreatedBy { get; set; }
+        public string? CreatedByIpAddress { get; set; }
+        public string? CreatedByUserAgent { get; set; }
+
+        // Update Audit
+        public string? UpdatedBy { get; set; }
+        public string? UpdatedByIpAddress { get; set; }
+        public string? UpdatedByUserAgent { get; set; }
+        public int UpdateCount { get; set; }
+
+        // Delete Audit
+        public string? DeletedBy { get; set; }
+        public string? DeletedReason { get; set; }
+
+        // Status & Workflow
+        public bool IsLocked { get; set; }
         public DateTime? LockedAt { get; set; }
         public string? LockedBy { get; set; }
-        public string? LockedReason { get; set; }
-        
-        // Versioning
-        public int Version { get; set; } = 1;
-        public Guid? ParentId { get; set; }
-        public string? VersionLabel { get; set; }
-        public bool IsLatestVersion { get; set; } = true;
-        
-        // Data Quality & Validation
-        public bool IsVerified { get; set; } = false;
+        public string? LockReason { get; set; }
+        public bool IsArchived { get; set; }
+        public DateTime? ArchivedAt { get; set; }
+        public bool IsVerified { get; set; }
         public DateTime? VerifiedAt { get; set; }
         public string? VerifiedBy { get; set; }
         public double? DataQualityScore { get; set; }
-        public DateTime? LastValidatedAt { get; set; }
-        
-        // Search & Indexing
-        public string? SearchVector { get; set; }
-        public DateTime? LastIndexedAt { get; set; }
-        public string? SearchKeywords { get; set; }
-        
-        // Multi-language Support
-        public string? PrimaryLanguage { get; set; }
-        public List<string> SupportedLanguages { get; set; } = new();
-        
-        // Geographic Information
-        public string? Timezone { get; set; }
-        public string? Region { get; set; }
-        public string? Country { get; set; }
-        
-        // External Integration
-        public string? ExternalId { get; set; }
-        public string? ExternalSource { get; set; }
-        public DateTime? ExternalSyncedAt { get; set; }
-        public Dictionary<string, string> ExternalIds { get; set; } = new(); // Multiple external systems
-        
-        // Tags & Categorization
-        public List<string> Tags { get; set; } = new();
-        public List<string> Categories { get; set; } = new();
-        
-        // Custom Fields & Extensibility
-        public Dictionary<string, object> Metadata { get; set; } = new();
-        public Dictionary<string, object> CustomFields { get; set; } = new();
-        public Dictionary<string, object> SystemFields { get; set; } = new();
-        
-        // Performance & Caching
-        public string? CacheKey { get; set; }
-        public DateTime? CachedAt { get; set; }
-        public int? CacheDurationSeconds { get; set; }
-        
-        // Security & Compliance
-        public bool IsEncrypted { get; set; } = false;
-        public string? EncryptionKeyId { get; set; }
-        public bool IsSensitive { get; set; } = false;
-        public List<string> ComplianceTags { get; set; } = new(); // GDPR, HIPAA, PCI, etc.
-        public bool RequiresAudit { get; set; } = true;
-        
-        // Change Tracking
-        public string? ChangeReason { get; set; }
-        public Dictionary<string, object> ChangeLog { get; set; } = new();
-        public string? ApprovalStatus { get; set; }
-        public Guid? ApprovedBy { get; set; }
-        public DateTime? ApprovedAt { get; set; }
-        
-        // Relationships & Hierarchy
-        public int HierarchyLevel { get; set; } = 0;
-        public string? HierarchyPath { get; set; }
+
+        // Version Control
+        public bool IsLatestVersion { get; set; }
+        public string? VersionLabel { get; set; }
+        public Guid? ParentId { get; set; }
+
+        // Ownership
         public Guid? OwnerId { get; set; }
         public string? OwnerType { get; set; }
-        
-        // Display & UI
-        public int DisplayOrder { get; set; } = 0;
-        public string? DisplayName { get; set; }
-        public string? IconUrl { get; set; }
-        public string? Color { get; set; }
-        
-        // Workflow & Process
-        public string? WorkflowState { get; set; }
-        public Guid? WorkflowInstanceId { get; set; }
-        public DateTime? WorkflowStartedAt { get; set; }
-        public DateTime? WorkflowCompletedAt { get; set; }
-        
-        // Notes & Comments
-        public string? InternalNotes { get; set; }
-        public int CommentCount { get; set; } = 0;
-        public int AttachmentCount { get; set; } = 0;
-        
-        // Analytics & Tracking
-        public long ViewCount { get; set; } = 0;
+
+        // Tracking
+        public int ViewCount { get; set; }
         public DateTime? LastViewedAt { get; set; }
-        public long AccessCount { get; set; } = 0;
+        public int AccessCount { get; set; }
         public DateTime? LastAccessedAt { get; set; }
-        
-        // Feature Flags
-        public Dictionary<string, bool> FeatureFlags { get; set; } = new();
-        
-        // Hash & Checksum (for integrity)
+        public DateTime? LastValidatedAt { get; set; }
+        public int CommentCount { get; set; }
+        public int AttachmentCount { get; set; }
+
+        // Geo & Locale
+        public string? Country { get; set; }
+        public string? Region { get; set; }
+        public string? Timezone { get; set; }
+        public string? PrimaryLanguage { get; set; }
+        public List<string> SupportedLanguages { get; set; }
+
+        // Cache & Performance
+        public string? CacheKey { get; set; }
+        public DateTime? CacheExpiresAt { get; set; }
+        public DateTime? CachedAt { get; set; }
+        public int CacheDurationSeconds { get; set; }
+        public bool RequiresCacheRefresh { get; set; }
         public string? ContentHash { get; set; }
         public string? Checksum { get; set; }
         public string? ETag { get; set; }
+
+        // Additional
+        public bool RequiresAudit { get; set; }
+        public int DisplayOrder { get; set; }
+
+        public AuditMetadata()
+        {
+            UpdateCount = 0;
+            ViewCount = 0;
+            AccessCount = 0;
+            CommentCount = 0;
+            AttachmentCount = 0;
+            IsLatestVersion = true;
+            RequiresAudit = true;
+            RequiresCacheRefresh = false;
+            CacheDurationSeconds = 0;
+            DisplayOrder = 0;
+            SupportedLanguages = new List<string>();
+        }
     }
 }

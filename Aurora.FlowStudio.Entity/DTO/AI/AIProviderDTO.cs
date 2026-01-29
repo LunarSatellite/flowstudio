@@ -1,20 +1,22 @@
+using System;
+using System.Collections.Generic;
 using Aurora.FlowStudio.Entity.DTO.Base;
 using Aurora.FlowStudio.Entity.Enums;
 
 namespace Aurora.FlowStudio.Entity.DTO.AI
 {
-    public class AIProviderDTO : BaseDTO
+    public class AIProviderDTO : TenantBaseDTO
     {
-        public string Name { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public AIProviderType Type { get; set; }
-        public AIProviderStatus Status { get; set; }
-        public bool IsPlatformDefault { get; set; }
-        public bool IsCustomerConfigurable { get; set; }
-        public List<AICapability> Capabilities { get; set; } = new();
-        public string DefaultModel { get; set; } = string.Empty;
-        public List<string> AvailableModels { get; set; } = new();
-        public AIProviderMetricsDTO Metrics { get; set; } = new();
+        public string Name { get; set; }
+        public AIProviderType Provider { get; set; }
+        public string Model { get; set; }
+        public string ApiKey { get; set; }
+        public string ApiUrl { get; set; }
+        public Dictionary<string, object> Settings { get; set; }
+        public bool IsDefault { get; set; }
+        public bool IsActive { get; set; }
+        public int RequestCount { get; set; }
+        public int TokensUsed { get; set; }
+        public decimal TotalCost { get; set; }
     }
 }

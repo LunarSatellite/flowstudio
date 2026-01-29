@@ -1,6 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Ardalis.Specification;
-using Aurora.FlowStudio.Entity.Entity.Base;
+using Aurora.FlowStudio.Entity.Base;
 using Aurora.FlowStudio.Infrastructure.OData;
 using Aurora.FlowStudio.Infrastructure.Results;
 

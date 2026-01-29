@@ -1,27 +1,41 @@
-using Microsoft.AspNetCore.Identity;
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 
-namespace Aurora.FlowStudio.Entity.Entity.Identity
+namespace Aurora.FlowStudio.Entity.Identity
 {
-    [Table("ApplicationUserRoles", Schema = "identity")]
-
-        public class ApplicationUserRole : IdentityUserRole<Guid>
+    /// <summary>
+    /// User-Role mapping with audit trail
+    /// </summary>
+    [Table("UserRoles")]
+    public class ApplicationUserRole : IdentityUserRole<Guid>
     {
-        public Guid Id { get; set; } = Guid.NewGuid();
-        [Column(TypeName = "datetime2")]
-        public DateTime AssignedAt { get; set; } = DateTime.UtcNow;
-        [MaxLength(200)]
-        public string? AssignedBy { get; set; }
-        [Column(TypeName = "datetime2")]
-        public DateTime? ExpiresAt { get; set; }
-        public bool IsActive { get; set; } = true;
+        /// <summary>
+        /// When was this role assigned to user
+        /// </summary>
+        [Required]
+        public DateTime AssignedAt { get; set; }
 
-        // Navigation Properties
-        public virtual ApplicationUser User { get; set; } = null!;
-        public virtual ApplicationRole Role { get; set; } = null!;
+        /// <summary>
+        /// Who assigned this role to user
+        /// </summary>
+        public Guid? AssignedBy { get; set; }
+
+        /// <summary>
+        /// Is this assignment active
+        /// </summary>
+        public bool IsActive { get; set; }
+
+        /// <summary>
+        /// Role assignment expiration (null = never expires)
+        /// </summary>
+        public DateTime? ExpiresAt { get; set; }
+
+        public ApplicationUserRole()
+        {
+            AssignedAt = DateTime.UtcNow;
+            IsActive = true;
+        }
     }
 }

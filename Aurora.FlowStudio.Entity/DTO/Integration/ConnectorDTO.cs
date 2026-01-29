@@ -1,20 +1,22 @@
+using System;
+using System.Collections.Generic;
 using Aurora.FlowStudio.Entity.DTO.Base;
 using Aurora.FlowStudio.Entity.Enums;
 
 namespace Aurora.FlowStudio.Entity.DTO.Integration
 {
-    public class ConnectorDTO : BaseDTO
+    public class ConnectorDTO : TenantBaseDTO
     {
-        public string Name { get; set; } = string.Empty;
-        public string DisplayName { get; set; } = string.Empty;
-        public string? Description { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
         public ConnectorType Type { get; set; }
-        public ConnectorCategory Category { get; set; }
-        public string? IconUrl { get; set; }
-        public ConnectorStatus Status { get; set; }
-        public HealthStatus? LastHealthStatus { get; set; }
-        public DateTime? LastHealthCheckAt { get; set; }
-        public int EndpointCount { get; set; }
-        public ConnectorMetricsDTO Metrics { get; set; } = new();
+        public string BaseUrl { get; set; }
+        public Dictionary<string, object> Authentication { get; set; }
+        public Dictionary<string, string> Headers { get; set; }
+        public int TimeoutSeconds { get; set; }
+        public int RetryCount { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime? LastTestedAt { get; set; }
+        public bool LastTestSuccess { get; set; }
     }
 }

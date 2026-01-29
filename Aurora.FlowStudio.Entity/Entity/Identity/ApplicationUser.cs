@@ -1,90 +1,174 @@
-using Microsoft.AspNetCore.Identity;
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
-using Aurora.FlowStudio.Entity.Entity.Core;
+using Microsoft.AspNetCore.Identity;
 
-namespace Aurora.FlowStudio.Entity.Entity.Identity
+namespace Aurora.FlowStudio.Entity.Identity
 {
-    [Table("ApplicationUsers", Schema = "identity")]
-
-    [Index(nameof(CreatedAt))]
-
+    /// <summary>
+    /// Application User extending ASP.NET Core Identity
+    /// Links to Tenant for multi-tenancy
+    /// </summary>
+    [Table("Users")]
     public class ApplicationUser : IdentityUser<Guid>
     {
-        // Extended Properties
-        [MaxLength(200)]
-        public string FirstName { get; set; } = string.Empty;
-        [MaxLength(200)]
-        public string LastName { get; set; } = string.Empty;
-        public string FullName => $"{FirstName} {LastName}".Trim();
-        [MaxLength(200)]
-        public string? DisplayName { get; set; }
-        [MaxLength(2000)]
-        public string? AvatarUrl { get; set; }
+        #region Tenant & Profile
 
-        // Tenant/Company Association
+        /// <summary>
+        /// Tenant ID for multi-tenancy
+        /// </summary>
+        [Required]
         public Guid TenantId { get; set; }
 
-        // Profile Information
+        /// <summary>
+        /// User's first name
+        /// </summary>
+        [Required]
+        [MaxLength(100)]
+        public string FirstName { get; set; }
+
+        /// <summary>
+        /// User's last name
+        /// </summary>
+        [Required]
+        [MaxLength(100)]
+        public string LastName { get; set; }
+
+        /// <summary>
+        /// Full name (computed)
+        /// </summary>
         [MaxLength(200)]
-        public string? JobTitle { get; set; }
-        [MaxLength(200)]
-        public string? Department { get; set; }
-        [MaxLength(200)]
-        public string? TimeZone { get; set; }
-        [MaxLength(200)]
+        public string FullName => $"{FirstName} {LastName}";
+
+        /// <summary>
+        /// Profile picture URL
+        /// </summary>
+        [MaxLength(500)]
+        public string? Avatar { get; set; }
+
+        /// <summary>
+        /// User's timezone
+        /// </summary>
+        [MaxLength(50)]
+        public string? Timezone { get; set; }
+
+        /// <summary>
+        /// Preferred language
+        /// </summary>
+        [MaxLength(10)]
         public string? Language { get; set; }
-        [MaxLength(200)]
-        public string? Country { get; set; }
 
-        // Status
-        public UserStatus Status { get; set; } = UserStatus.Active;
+        #endregion
 
-        // FIDO2 Authentication - NO PASSWORD!
-        public bool FIDO2Enabled { get; set; } = true; // Always true for studio users
-        public bool HasFIDO2Credential { get; set; } = false;
-        [Column(TypeName = "datetime2")]
-        public DateTime? FIDO2EnrolledAt { get; set; }
+        #region Status & Tracking
 
-        // Session Tracking
-        [Column(TypeName = "datetime2")]
-        public DateTime? LastLoginAt { get; set; }
-        [MaxLength(200)]
-        public string? LastLoginIp { get; set; }
-        [MaxLength(200)]
-        public string? LastUserAgent { get; set; }
-        public int FailedLoginAttempts { get; set; } = 0;
+        /// <summary>
+        /// Is user active?
+        /// </summary>
+        public bool IsActive { get; set; }
 
-        // Preferences
-        public Dictionary<string, object> Preferences { get; set; } = new();
-        public Dictionary<string, object> Metadata { get; set; } = new();
+        /// <summary>
+        /// Is user deleted (soft delete)
+        /// </summary>
+        public bool IsDeleted { get; set; }
 
-        // Audit Fields
-        [Column(TypeName = "datetime2")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        [Column(TypeName = "datetime2")]
-        public DateTime? UpdatedAt { get; set; }
-        [MaxLength(200)]
-        public string? CreatedBy { get; set; }
-        [MaxLength(200)]
-        public string? UpdatedBy { get; set; }
-        public bool IsDeleted { get; set; } = false;
-        [Column(TypeName = "datetime2")]
+        /// <summary>
+        /// When was user deleted
+        /// </summary>
         public DateTime? DeletedAt { get; set; }
-        [MaxLength(200)]
-        public string? DeletedBy { get; set; }
 
-        // Navigation Properties
-        public virtual Core.Tenant Tenant { get; set; } = null!;
-        public virtual ICollection<ApplicationUserRole> UserRoles { get; set; } = new List<ApplicationUserRole>();
-        public virtual ICollection<ApplicationUserClaim> UserClaims { get; set; } = new List<ApplicationUserClaim>();
-        public virtual ICollection<ApplicationUserLogin> UserLogins { get; set; } = new List<ApplicationUserLogin>();
-        public virtual ICollection<ApplicationUserToken> UserTokens { get; set; } = new List<ApplicationUserToken>();
-        public virtual ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
-        public virtual ICollection<UserActivityLog> ActivityLogs { get; set; } = new List<UserActivityLog>();
-        public virtual ICollection<FIDO2Credential> FIDO2Credentials { get; set; } = new List<FIDO2Credential>();
+        /// <summary>
+        /// Who deleted the user
+        /// </summary>
+        public Guid? DeletedBy { get; set; }
+
+        /// <summary>
+        /// Last login timestamp
+        /// </summary>
+        public DateTime? LastLoginAt { get; set; }
+
+        /// <summary>
+        /// Last login IP address
+        /// </summary>
+        [MaxLength(50)]
+        public string? LastLoginIp { get; set; }
+
+        /// <summary>
+        /// Total login count
+        /// </summary>
+        public int LoginCount { get; set; }
+
+        /// <summary>
+        /// Failed login attempts
+        /// </summary>
+        public int FailedLoginAttempts { get; set; }
+
+        /// <summary>
+        /// When account was locked out due to failed attempts
+        /// </summary>
+        public DateTime? AccountLockedUntil { get; set; }
+
+        #endregion
+
+        #region Audit Fields
+
+        /// <summary>
+        /// When user was created
+        /// </summary>
+        [Required]
+        public DateTime CreatedAt { get; set; }
+
+        /// <summary>
+        /// Who created the user
+        /// </summary>
+        public Guid? CreatedBy { get; set; }
+
+        /// <summary>
+        /// When user was last updated
+        /// </summary>
+        public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>
+        /// Who last updated the user
+        /// </summary>
+        public Guid? UpdatedBy { get; set; }
+
+        #endregion
+
+        #region Preferences
+
+        /// <summary>
+        /// Email notification preferences
+        /// </summary>
+        public bool EmailNotifications { get; set; }
+
+        /// <summary>
+        /// SMS notification preferences
+        /// </summary>
+        public bool SmsNotifications { get; set; }
+
+        /// <summary>
+        /// Push notification preferences
+        /// </summary>
+        public bool PushNotifications { get; set; }
+
+        #endregion
+
+        #region Constructor
+
+        public ApplicationUser()
+        {
+            Id = Guid.NewGuid();
+            CreatedAt = DateTime.UtcNow;
+            IsActive = true;
+            IsDeleted = false;
+            LoginCount = 0;
+            FailedLoginAttempts = 0;
+            EmailNotifications = true;
+            SmsNotifications = false;
+            PushNotifications = true;
+        }
+
+        #endregion
     }
 }

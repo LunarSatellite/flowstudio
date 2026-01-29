@@ -1,32 +1,21 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
-using Aurora.FlowStudio.Entity.Entity.Core;
-using Aurora.FlowStudio.Entity.Entity.Identity;
-using Aurora.FlowStudio.Entity.Entity.Flow;
-using Aurora.FlowStudio.Entity.Entity.Conversation;
-using Aurora.FlowStudio.Entity.Entity.Integration;
-using Aurora.FlowStudio.Entity.Entity.AI;
-using Aurora.FlowStudio.Entity.Entity.Commerce;
-using Aurora.FlowStudio.Entity.Entity.DataManagement;
-using Aurora.FlowStudio.Entity.Entity.NLU;
-using Aurora.FlowStudio.Entity.Entity.AITraining;
-using Aurora.FlowStudio.Entity.Entity.Messaging;
+using Aurora.FlowStudio.Entity.Base;
+using Aurora.FlowStudio.Entity.Tenant;
+using Aurora.FlowStudio.Entity.Conversation;
+using Aurora.FlowStudio.Entity.Flow;
+using Aurora.FlowStudio.Entity.AI;
+using Aurora.FlowStudio.Entity.Integration;
+using Aurora.FlowStudio.Entity.Knowledge;
+using Aurora.FlowStudio.Entity.Identity;
+using System.Text.Json;
 
 namespace Aurora.FlowStudio.Data.Context
 {
     /// <summary>
-    /// Main DbContext for Aurora FlowStudio with ASP.NET Core Identity and multi-tenancy support
+    /// Main DbContext for Aurora FlowStudio
+    /// ✨ Optimized with JSON Metadata (12 columns + 1 JSON column)
     /// </summary>
-    public class FlowStudioDbContext : IdentityDbContext<
-        ApplicationUser,
-        ApplicationRole,
-        Guid,
-        ApplicationUserClaim,
-        ApplicationUserRole,
-        ApplicationUserLogin,
-        ApplicationRoleClaim,
-        ApplicationUserToken>
+    public class FlowStudioDbContext : DbContext
     {
         private readonly Guid? _currentTenantId;
 
@@ -34,192 +23,176 @@ namespace Aurora.FlowStudio.Data.Context
         {
         }
 
-        public FlowStudioDbContext(DbContextOptions<FlowStudioDbContext> options, Guid? currentTenantId) 
+        public FlowStudioDbContext(DbContextOptions<FlowStudioDbContext> options, Guid? currentTenantId)
             : base(options)
         {
             _currentTenantId = currentTenantId;
         }
 
-        #region Core DbSets
+        #region Tenant DbSets (10 entities)
         public DbSet<Tenant> Tenants { get; set; }
-        public DbSet<User> Users { get; set; }
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<Permission> Permissions { get; set; }
-        public DbSet<UserRole> UserRoles { get; set; }
-        public DbSet<RolePermission> RolePermissions { get; set; }
-        public DbSet<UserSession> UserSessions { get; set; }
-        public DbSet<TenantSetting> TenantSettings { get; set; }
+        public DbSet<TenantSubscription> TenantSubscriptions { get; set; }
+        public DbSet<Usage> Usages { get; set; }
+        public DbSet<UsageBreakdown> UsageBreakdowns { get; set; }
+        public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<PricingRule> PricingRules { get; set; }
+        public DbSet<APIKey> APIKeys { get; set; }
+        public DbSet<CostAlert> CostAlerts { get; set; }
+        public DbSet<PricingHistory> PricingHistories { get; set; }
+        public DbSet<UsageQuota> UsageQuotas { get; set; }
         #endregion
 
-        #region Identity DbSets
-        // ApplicationUser, ApplicationRole, etc. are already defined by IdentityDbContext
-        public DbSet<FIDO2Credential> FIDO2Credentials { get; set; }
-        public DbSet<UserActivityLog> UserActivityLogs { get; set; }
+        #region Conversation DbSets (5 entities)
+        public DbSet<Conversation> Conversations { get; set; }
+        public DbSet<Message> Messages { get; set; }
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Channel> Channels { get; set; }
+        public DbSet<ChannelMessage> ChannelMessages { get; set; }
         #endregion
 
-        #region Flow DbSets
-        public DbSet<Entity.Entity.Flow.Flow> Flows { get; set; }
+        #region Flow DbSets (6 entities)
+        public DbSet<Flow> Flows { get; set; }
         public DbSet<FlowNode> FlowNodes { get; set; }
         public DbSet<FlowConnection> FlowConnections { get; set; }
         public DbSet<FlowVariable> FlowVariables { get; set; }
+        public DbSet<FlowExecution> FlowExecutions { get; set; }
         public DbSet<FlowVersion> FlowVersions { get; set; }
-        public DbSet<FlowAnalytics> FlowAnalytics { get; set; }
-        public DbSet<FlowIntegration> FlowIntegrations { get; set; }
-        public DbSet<Menu> Menus { get; set; }
-        public DbSet<MenuItem> MenuItems { get; set; }
-        public DbSet<NodeAction> NodeActions { get; set; }
-        public DbSet<NodeResponseSource> NodeResponseSources { get; set; }
         #endregion
 
-        #region Conversation DbSets
-        public DbSet<Entity.Entity.Conversation.Conversation> Conversations { get; set; }
-        public DbSet<Message> Messages { get; set; }
-        public DbSet<Customer> Customers { get; set; }
-        public DbSet<CustomerAuthentication> CustomerAuthentications { get; set; }
-        public DbSet<CustomerActivity> CustomerActivities { get; set; }
-        public DbSet<CustomerNote> CustomerNotes { get; set; }
-        public DbSet<CustomerTag> CustomerTags { get; set; }
-        public DbSet<ConversationTag> ConversationTags { get; set; }
-        public DbSet<ConversationNote> ConversationNotes { get; set; }
-        public DbSet<ConversationFeedback> ConversationFeedbacks { get; set; }
-        public DbSet<MessageAttachment> MessageAttachments { get; set; }
-        public DbSet<MessageReaction> MessageReactions { get; set; }
-        public DbSet<SentimentAnalysis> SentimentAnalyses { get; set; }
+        #region AI DbSets (3 entities)
+        public DbSet<AIProvider> AIProviders { get; set; }
+        public DbSet<VoiceProvider> VoiceProviders { get; set; }
+        public DbSet<WebRTCConfig> WebRTCConfigs { get; set; }
         #endregion
 
-        #region Integration DbSets
+        #region Integration DbSets (3 entities)
         public DbSet<Connector> Connectors { get; set; }
         public DbSet<ConnectorEndpoint> ConnectorEndpoints { get; set; }
         public DbSet<ConnectorLog> ConnectorLogs { get; set; }
-        public DbSet<ConnectorMetrics> ConnectorMetrics { get; set; }
         #endregion
 
-        #region AI DbSets
-        public DbSet<AIProvider> AIProviders { get; set; }
-        public DbSet<AIModel> AIModels { get; set; }
-        public DbSet<AIProviderLog> AIProviderLogs { get; set; }
-        public DbSet<STTProvider> STTProviders { get; set; }
-        public DbSet<TTSProvider> TTSProviders { get; set; }
-        #endregion
-
-        #region Commerce DbSets
-        public DbSet<Product> Products { get; set; }
-        public DbSet<ProductCategory> ProductCategories { get; set; }
-        public DbSet<ProductVariant> ProductVariants { get; set; }
-        public DbSet<ProductReview> ProductReviews { get; set; }
-        public DbSet<Cart> Carts { get; set; }
-        public DbSet<CartItem> CartItems { get; set; }
-        public DbSet<Order> Orders { get; set; }
-        public DbSet<OrderItem> OrderItems { get; set; }
-        public DbSet<OrderTransaction> OrderTransactions { get; set; }
-        public DbSet<Discount> Discounts { get; set; }
-        public DbSet<Address> Addresses { get; set; }
-        #endregion
-
-        #region DataManagement DbSets
-        public DbSet<DataSource> DataSources { get; set; }
-        public DbSet<DataQuery> DataQueries { get; set; }
-        public DbSet<QueryExecution> QueryExecutions { get; set; }
-        public DbSet<DataSourceConnection> DataSourceConnections { get; set; }
-        public DbSet<DataSourceLog> DataSourceLogs { get; set; }
-        #endregion
-
-        #region NLU DbSets
-        public DbSet<Intent> Intents { get; set; }
-        public DbSet<Entity.Entity.NLU.Entity> Entities { get; set; }
-        public DbSet<NLUModel> NLUModels { get; set; }
-        public DbSet<TrainingPhrase> TrainingPhrases { get; set; }
-        public DbSet<IntentResponse> IntentResponses { get; set; }
-        public DbSet<ModelEvaluation> ModelEvaluations { get; set; }
-        public DbSet<IntentDetectionLog> IntentDetectionLogs { get; set; }
-        #endregion
-
-        #region AITraining DbSets
-        public DbSet<TrainingDataset> TrainingDatasets { get; set; }
-        public DbSet<DatasetSample> DatasetSamples { get; set; }
-        public DbSet<TrainingJob> TrainingJobs { get; set; }
-        public DbSet<Experiment> Experiments { get; set; }
-        public DbSet<ModelRegistry> ModelRegistries { get; set; }
-        public DbSet<ModelDeployment> ModelDeployments { get; set; }
-        #endregion
-
-        #region Messaging DbSets
+        #region Knowledge DbSets (3 entities)
         public DbSet<MessageTemplate> MessageTemplates { get; set; }
-        public DbSet<MessageTemplateVersion> MessageTemplateVersions { get; set; }
-        public DbSet<TemplateLibrary> TemplateLibraries { get; set; }
+        public DbSet<KnowledgeBase> KnowledgeBases { get; set; }
+        public DbSet<Intent> Intents { get; set; }
+        #endregion
+
+        #region Identity DbSets (6 files covering 9 entities)
+        public DbSet<ApplicationUser> ApplicationUsers { get; set; }
+        public DbSet<ApplicationRole> ApplicationRoles { get; set; }
+        public DbSet<ApplicationUserRole> ApplicationUserRoles { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
+        // ApplicationUserClaim, ApplicationUserLogin, ApplicationUserToken, ApplicationRoleClaim
+        // are handled by ApplicationIdentityEntities.cs
         #endregion
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure Identity table names and schema
-            ConfigureIdentityTables(modelBuilder);
+            // ✨ STEP 1: Configure JSON metadata for all BaseEntity types
+            ConfigureJsonMetadata(modelBuilder);
 
-            // Apply all configurations from assembly
-            modelBuilder.ApplyConfigurationsFromAssembly(typeof(FlowStudioDbContext).Assembly);
+            // ✨ STEP 2: Configure indexes on essential columns
+            ConfigureEssentialIndexes(modelBuilder);
 
-            // Global query filters for soft delete
+            // STEP 3: Apply global query filters
             ApplySoftDeleteFilter(modelBuilder);
 
-            // Global query filters for multi-tenancy
             if (_currentTenantId.HasValue)
             {
                 ApplyTenantFilter(modelBuilder, _currentTenantId.Value);
             }
+
+            // STEP 4: Apply your entity configurations
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(FlowStudioDbContext).Assembly);
         }
 
-        private void ConfigureIdentityTables(ModelBuilder modelBuilder)
+        #region JSON Metadata Configuration
+
+        private void ConfigureJsonMetadata(ModelBuilder modelBuilder)
         {
-            // Configure Identity tables with proper naming and schema
-            modelBuilder.Entity<ApplicationUser>(b =>
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                b.ToTable("AspNetUsers", "identity");
-                b.HasIndex(u => u.TenantId);
-            });
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    modelBuilder.Entity(entityType.ClrType)
+                        .Property<AuditMetadata>("Metadata")
+                        .HasColumnType("jsonb")
+                        .HasConversion(
+                            v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null),
+                            v => JsonSerializer.Deserialize<AuditMetadata>(v, (JsonSerializerOptions?)null) ?? new AuditMetadata()
+                        )
+                        .IsRequired();
 
-            modelBuilder.Entity<ApplicationRole>(b =>
-            {
-                b.ToTable("AspNetRoles", "identity");
-                b.HasIndex(r => r.TenantId);
-            });
-
-            modelBuilder.Entity<ApplicationUserRole>(b =>
-            {
-                b.ToTable("AspNetUserRoles", "identity");
-                b.HasKey(ur => new { ur.UserId, ur.RoleId });
-            });
-
-            modelBuilder.Entity<ApplicationUserClaim>(b =>
-            {
-                b.ToTable("AspNetUserClaims", "identity");
-            });
-
-            modelBuilder.Entity<ApplicationUserLogin>(b =>
-            {
-                b.ToTable("AspNetUserLogins", "identity");
-            });
-
-            modelBuilder.Entity<ApplicationUserToken>(b =>
-            {
-                b.ToTable("AspNetUserTokens", "identity");
-            });
-
-            modelBuilder.Entity<ApplicationRoleClaim>(b =>
-            {
-                b.ToTable("AspNetRoleClaims", "identity");
-            });
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("Metadata")
+                        .HasDatabaseName($"IX_{entityType.GetTableName()}_Metadata");
+                }
+            }
         }
+
+        #endregion
+
+        #region Essential Column Indexes
+
+        private void ConfigureEssentialIndexes(ModelBuilder modelBuilder)
+        {
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+            {
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    var tableName = entityType.GetTableName() ?? entityType.ClrType.Name;
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("CreatedAt")
+                        .HasDatabaseName($"IX_{tableName}_CreatedAt");
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("CreatedByUserId")
+                        .HasDatabaseName($"IX_{tableName}_CreatedByUserId");
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("IsDeleted")
+                        .HasDatabaseName($"IX_{tableName}_IsDeleted");
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("IsActive")
+                        .HasDatabaseName($"IX_{tableName}_IsActive");
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("UpdatedAt")
+                        .HasDatabaseName($"IX_{tableName}_UpdatedAt");
+                }
+
+                if (typeof(TenantBaseEntity).IsAssignableFrom(entityType.ClrType))
+                {
+                    var tableName = entityType.GetTableName() ?? entityType.ClrType.Name;
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("TenantId", "IsDeleted", "CreatedAt")
+                        .HasDatabaseName($"IX_{tableName}_Tenant_Delete_Created");
+
+                    modelBuilder.Entity(entityType.ClrType)
+                        .HasIndex("TenantId", "IsActive")
+                        .HasDatabaseName($"IX_{tableName}_Tenant_Active");
+                }
+            }
+        }
+
+        #endregion
+
+        #region Global Query Filters
 
         private void ApplySoftDeleteFilter(ModelBuilder modelBuilder)
         {
-            // Apply soft delete filter to all entities inheriting from BaseEntity
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                if (typeof(Entity.Entity.Base.BaseEntity).IsAssignableFrom(entityType.ClrType))
+                if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
                     var method = typeof(FlowStudioDbContext)
-                        .GetMethod(nameof(GetSoftDeleteFilter), 
+                        .GetMethod(nameof(GetSoftDeleteFilter),
                             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?
                         .MakeGenericMethod(entityType.ClrType);
 
@@ -232,8 +205,8 @@ namespace Aurora.FlowStudio.Data.Context
             }
         }
 
-        private static System.Linq.Expressions.LambdaExpression GetSoftDeleteFilter<TEntity>() 
-            where TEntity : Entity.Entity.Base.BaseEntity
+        private static System.Linq.Expressions.LambdaExpression GetSoftDeleteFilter<TEntity>()
+            where TEntity : BaseEntity
         {
             System.Linq.Expressions.Expression<Func<TEntity, bool>> filter = x => !x.IsDeleted;
             return filter;
@@ -241,13 +214,12 @@ namespace Aurora.FlowStudio.Data.Context
 
         private void ApplyTenantFilter(ModelBuilder modelBuilder, Guid tenantId)
         {
-            // Apply tenant filter to all entities inheriting from TenantBaseEntity
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
-                if (typeof(Entity.Entity.Base.TenantBaseEntity).IsAssignableFrom(entityType.ClrType))
+                if (typeof(TenantBaseEntity).IsAssignableFrom(entityType.ClrType))
                 {
                     var method = typeof(FlowStudioDbContext)
-                        .GetMethod(nameof(GetTenantFilter), 
+                        .GetMethod(nameof(GetTenantFilter),
                             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)?
                         .MakeGenericMethod(entityType.ClrType);
 
@@ -260,36 +232,65 @@ namespace Aurora.FlowStudio.Data.Context
             }
         }
 
-        private static System.Linq.Expressions.LambdaExpression GetTenantFilter<TEntity>(Guid tenantId) 
-            where TEntity : Entity.Entity.Base.TenantBaseEntity
+        private static System.Linq.Expressions.LambdaExpression GetTenantFilter<TEntity>(Guid tenantId)
+            where TEntity : TenantBaseEntity
         {
             System.Linq.Expressions.Expression<Func<TEntity, bool>> filter = x => x.TenantId == tenantId;
             return filter;
         }
 
+        #endregion
+
+        #region SaveChanges Override
+
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            // Auto-set audit fields before saving
             var entries = ChangeTracker.Entries()
-                .Where(e => e.Entity is Entity.Entity.Base.BaseEntity && 
+                .Where(e => e.Entity is BaseEntity &&
                            (e.State == EntityState.Added || e.State == EntityState.Modified));
 
             foreach (var entry in entries)
             {
-                var entity = (Entity.Entity.Base.BaseEntity)entry.Entity;
+                var entity = (BaseEntity)entry.Entity;
+
+                if (entity.Metadata == null)
+                {
+                    entity.Metadata = new AuditMetadata();
+                }
 
                 if (entry.State == EntityState.Added)
                 {
                     entity.CreatedAt = DateTime.UtcNow;
+                    entity.IsDeleted = false;
+                    entity.IsActive = true;
+                    entity.Version = 1;
+                    entity.ConcurrencyStamp = Guid.NewGuid();
+
+                    entity.Metadata.UpdateCount = 0;
+                    entity.Metadata.ViewCount = 0;
+                    entity.Metadata.AccessCount = 0;
+                    entity.Metadata.CommentCount = 0;
+                    entity.Metadata.AttachmentCount = 0;
+                    entity.Metadata.IsLatestVersion = true;
+                    entity.Metadata.IsArchived = false;
+                    entity.Metadata.IsVerified = false;
+                    entity.Metadata.RequiresAudit = true;
+                    entity.Metadata.DisplayOrder = 0;
                 }
                 else if (entry.State == EntityState.Modified)
                 {
                     entity.UpdatedAt = DateTime.UtcNow;
-                    entity.UpdateCount++;
+                    entity.ConcurrencyStamp = Guid.NewGuid();
+
+                    entity.Metadata.UpdateCount++;
+                    entity.Metadata.LastAccessedAt = DateTime.UtcNow;
+                    entity.Metadata.LastValidatedAt = DateTime.UtcNow;
                 }
             }
 
             return base.SaveChangesAsync(cancellationToken);
         }
+
+        #endregion
     }
 }

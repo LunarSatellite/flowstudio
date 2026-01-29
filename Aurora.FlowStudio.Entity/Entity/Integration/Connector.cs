@@ -1,68 +1,46 @@
-using Aurora.FlowStudio.Entity.Entity.Base;
-using Aurora.FlowStudio.Entity.Enums;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
+using Aurora.FlowStudio.Entity.Base;
+using Aurora.FlowStudio.Entity.Enums;
 
-namespace Aurora.FlowStudio.Entity.Entity.Integration
+namespace Aurora.FlowStudio.Entity.Integration
 {
-    [Table("Connectors", Schema = "integration")]
-
-    [Index(nameof(TenantId), nameof(IsDeleted))]
-[Index(nameof(CreatedAt))]
-
+    /// <summary>
+    /// External API/Database connection
+    /// </summary>
+    [Table("Connectors")]
     public class Connector : TenantBaseEntity
     {
+        [Required]
         [MaxLength(200)]
-        public string Name { get; set; } = string.Empty;
-        [MaxLength(200)]
-        public string DisplayName { get; set; } = string.Empty;
-        [MaxLength(4000)]
-        public string? Description { get; set; }
-        public ConnectorType Type { get; set; } = ConnectorType.RestAPI;
-        public ConnectorCategory Category { get; set; } = ConnectorCategory.Custom;
-        [MaxLength(2000)]
-        public string? IconUrl { get; set; }
-        public ConnectorStatus Status { get; set; } = ConnectorStatus.Active;
-
-        // Connection Details
-        public ConnectionConfig Configuration { get; set; } = new();
-
-        // Authentication
-        public AuthenticationConfig Authentication { get; set; } = new();
-
-        // Rate Limiting
-        public RateLimitConfig? RateLimit { get; set; }
-
-        // Retry & Timeout
-        public RetryConfig RetryPolicy { get; set; } = new();
-        public int TimeoutSeconds { get; set; } = 30;
-
-        // Health Check
-        [MaxLength(200)]
-        public string? HealthCheckEndpoint { get; set; }
-        public int HealthCheckIntervalMinutes { get; set; } = 5;
-        [Column(TypeName = "datetime2")]
-        public DateTime? LastHealthCheckAt { get; set; }
-        public HealthStatus? LastHealthStatus { get; set; }
-
-        // Versioning
-        [MaxLength(200)]
-        public string? ApiVersion { get; set; }
-        public bool IsVersioned { get; set; } = false;
-
-        // Security
-        public bool IsEncrypted { get; set; } = true;
-        public bool AllowInsecure { get; set; } = false;
-        public List<string> AllowedIpAddresses { get; set; } = new();
-
-        // Monitoring
-        public ConnectorMetrics Metrics { get; set; } = new();
-        public Dictionary<string, object> Metadata { get; set; } = new();
-
-        // Navigation properties
-        public ICollection<ConnectorEndpoint> Endpoints { get; set; } = new List<ConnectorEndpoint>();
-        public ICollection<ConnectorLog> Logs { get; set; } = new List<ConnectorLog>();
-        public ICollection<Flow.FlowIntegration> FlowIntegrations { get; set; } = new List<Flow.FlowIntegration>();
+        public string Name { get; set; }
+        
+        [MaxLength(1000)]
+        public string Description { get; set; }
+        
+        [Required]
+        public ConnectorType Type { get; set; }
+        
+        [Required]
+        [MaxLength(500)]
+        public string BaseUrl { get; set; }
+        
+        [Column(TypeName = "jsonb")]
+        public Dictionary<string, object> Authentication { get; set; }
+        
+        [Column(TypeName = "jsonb")]
+        public Dictionary<string, string> Headers { get; set; }
+        
+        public int TimeoutSeconds { get; set; }
+        
+        public int RetryCount { get; set; }
+        
+        public bool IsActive { get; set; }
+        
+        public DateTime? LastTestedAt { get; set; }
+        
+        public bool LastTestSuccess { get; set; }
     }
 }

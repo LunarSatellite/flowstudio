@@ -3,7 +3,7 @@ using System;
 namespace Aurora.FlowStudio.Entity.DTO.Base
 {
     /// <summary>
-    /// Base DTO with common properties
+    /// Base DTO with common fields
     /// </summary>
     public abstract class BaseDTO
     {

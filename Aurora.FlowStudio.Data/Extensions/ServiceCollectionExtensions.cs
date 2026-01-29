@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using Aurora.FlowStudio.Data.Context;
-using Aurora.FlowStudio.Entity.Entity.Identity;
+using Aurora.FlowStudio.Entity.Identity;
 
 namespace Aurora.FlowStudio.Data.Extensions
 {
